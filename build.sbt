@@ -76,7 +76,13 @@ lazy val baseSettings = Seq(
   )
 )
 
-ThisBuild / version := "0.1.0-SNAPSHOT"
+def versionFromFile: String = {
+  val source = scala.io.Source.fromFile("version")
+  try source.mkString.trim
+  finally source.close()
+}
+
+ThisBuild / version := versionFromFile
 
 ThisBuild / scalaVersion := "2.13.12"
 
