@@ -9,6 +9,18 @@ This library is designed to turn DynamoDB into an Event Store for Event Sourcing
 
 [日本語](./README.ja.md)
 
+## Installation
+
+Add the following to your sbt build (2.12.x, 2.13.x, 3.0.x):
+
+```scala
+val version = "..."
+
+libraryDependencies += Seq(
+  "com.github.j5ik2o" %% "event-store-adapter-scala" % version,
+)
+```
+
 ## Usage
 
 You can easily implement an Event Sourcing-enabled repository using EventStore.
