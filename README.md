@@ -54,4 +54,21 @@ class UserAccountRepositoryAsync(
 The following is an example of the repository usage
 
 ```scala
+val eventStore = EventStoreAsyncForDynamoDB[UserAccountId, UserAccount, UserAccountEvent](
+  dynamodbClient,
+  journalTableName,
+  snapshotTableName,
+  journalAidIndexName,
+  snapshotAidIndexName,
+  32
+)
+val repository = new UserAccountRepositoryAsync(eventStore)
+
+val id                 = UserAccountId(UUID.randomUUID().toString)
+val (aggregate, event) = UserAccount.create(id, "test-1")
+
+val result = for {
+  _ <- repository.store(event, aggregate)
+  aggregate <- repository.findById(id)
+} yield aggregate
 ```
