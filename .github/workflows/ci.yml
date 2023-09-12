@@ -4,23 +4,13 @@ on:
   push:
     branches:
       - main
-    paths:
-      - '**.scala'
-      - '**.java'
-      - '**.sbt'
-      - '.scalafmt.conf'
-      - 'project/build.properties'
-      - '.github/workflows/ci.yml'
+    paths-ignore:
+      - 'version'
   pull_request:
     branches:
       - main
-    paths:
-      - '**.scala'
-      - '**.java'
-      - '**.sbt'
-      - '.scalafmt.conf'
-      - 'project/build.properties'
-      - '.github/workflows/ci.yml'
+    paths-ignore:
+      - 'version'
   schedule:
     - cron: '0 * * * *'
 jobs:
