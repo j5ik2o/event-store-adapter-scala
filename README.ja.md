@@ -5,13 +5,13 @@
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![tokei](https://tokei.rs/b1/github/j5ik2o/event-store-adapter-scala)](https://github.com/XAMPPRocky/tokei)
 
-This library is designed to turn DynamoDB into an Event Store for Event Sourcing.
+このライブラリは、DynamoDBをEvent Sourcing用のEvent Storeにするためのものです。
 
-[日本語](./README.ja.md)
+[English](./README.md)
 
 ## Installation
 
-Add the following to your sbt build (2.12.x, 2.13.x, 3.0.x):
+以下を`build.sbt`に追加してください。
 
 ```scala
 val version = "..."
@@ -21,9 +21,9 @@ libraryDependencies += Seq(
 )
 ```
 
-## Usage
+## 使い方
 
-You can easily implement an Event Sourcing-enabled repository using EventStore.
+EventStoreを使えば、Event Sourcing対応リポジトリを簡単に実装できます。
 
 ```scala
 class UserAccountRepositoryAsync(
@@ -55,7 +55,7 @@ class UserAccountRepositoryAsync(
 }
 ```
 
-The following is an example of the repository usage
+以下はリポジトリの使用例です。
 
 ```scala
 val eventStore = EventStoreAsyncForDynamoDB[UserAccountId, UserAccount, UserAccountEvent](
