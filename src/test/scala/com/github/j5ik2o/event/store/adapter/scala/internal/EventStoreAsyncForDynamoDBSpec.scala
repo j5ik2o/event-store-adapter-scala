@@ -2,9 +2,9 @@ package com.github.j5ik2o.event.store.adapter.scala.internal
 
 import com.github.j5ik2o.dockerController.localstack.{ LocalStackController, Service }
 import com.github.j5ik2o.dockerController.{ DockerController, DockerControllerSpecSupport, WaitPredicates }
+import org.scalatest.OptionValues
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.freespec.AnyFreeSpec
-import org.scalatest.{ OptionValues, TryValues }
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient
 

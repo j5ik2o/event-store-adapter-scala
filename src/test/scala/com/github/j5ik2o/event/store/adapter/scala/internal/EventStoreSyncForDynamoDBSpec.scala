@@ -2,27 +2,11 @@ package com.github.j5ik2o.event.store.adapter.scala.internal
 
 import com.github.j5ik2o.dockerController.localstack.{ LocalStackController, Service }
 import com.github.j5ik2o.dockerController.{ DockerController, DockerControllerSpecSupport, WaitPredicates }
-import com.github.j5ik2o.event_store_adatpter_java.internal.{ EventStoreForDynamoDB => JavaEventStoreForDynamoDB }
-import org.scalatest.{ OptionValues, TryValues }
 import org.scalatest.freespec.AnyFreeSpec
-import software.amazon.awssdk.auth.credentials.{ AwsBasicCredentials, StaticCredentialsProvider }
+import org.scalatest.{ OptionValues, TryValues }
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient
-import software.amazon.awssdk.services.dynamodb.model.{
-  AttributeDefinition,
-  CreateTableRequest,
-  GlobalSecondaryIndex,
-  KeySchemaElement,
-  KeyType,
-  Projection,
-  ProjectionType,
-  ProvisionedThroughput,
-  ScalarAttributeType,
-  TimeToLiveSpecification,
-  UpdateTimeToLiveRequest
-}
 
-import java.net.URI
 import java.util.UUID
 import scala.concurrent.duration.Duration;
 

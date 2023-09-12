@@ -3,19 +3,7 @@ package com.github.j5ik2o.event.store.adapter.scala.internal
 import software.amazon.awssdk.auth.credentials.{ AwsBasicCredentials, StaticCredentialsProvider }
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient
-import software.amazon.awssdk.services.dynamodb.model.{
-  AttributeDefinition,
-  CreateTableRequest,
-  GlobalSecondaryIndex,
-  KeySchemaElement,
-  KeyType,
-  Projection,
-  ProjectionType,
-  ProvisionedThroughput,
-  ScalarAttributeType,
-  TimeToLiveSpecification,
-  UpdateTimeToLiveRequest
-}
+import software.amazon.awssdk.services.dynamodb.model._
 
 import java.net.URI
 

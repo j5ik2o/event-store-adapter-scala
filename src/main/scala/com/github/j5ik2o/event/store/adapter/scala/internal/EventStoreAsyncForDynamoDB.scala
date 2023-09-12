@@ -1,14 +1,7 @@
 package com.github.j5ik2o.event.store.adapter.scala.internal
 
 import com.github.j5ik2o.event.store.adapter.scala.EventStoreAsync
-import com.github.j5ik2o.event_store_adatpter_java.{
-  Aggregate,
-  AggregateId,
-  Event,
-  EventSerializer,
-  KeyResolver,
-  SnapshotSerializer
-}
+import com.github.j5ik2o.event_store_adatpter_java._
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient
 
 import scala.concurrent.duration.FiniteDuration

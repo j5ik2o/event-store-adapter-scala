@@ -1,22 +1,15 @@
 package com.github.j5ik2o.event.store.adapter.scala.internal
 
 import com.github.j5ik2o.event.store.adapter.scala.EventStore
-import com.github.j5ik2o.event_store_adatpter_java.{
-  Aggregate,
-  AggregateId,
-  Event,
-  EventSerializer,
-  KeyResolver,
-  SnapshotSerializer
-}
+import com.github.j5ik2o.event_store_adatpter_java._
 import com.github.j5ik2o.event_store_adatpter_java.internal.{ EventStoreForDynamoDB => JavaEventStoreForDynamoDB }
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient
 
 import scala.concurrent.duration.FiniteDuration
 import scala.jdk.CollectionConverters._
+import scala.jdk.DurationConverters._
 import scala.jdk.OptionConverters._
 import scala.util.Try
-import scala.jdk.DurationConverters._
 
 object EventStoreForDynamoDB {
 
