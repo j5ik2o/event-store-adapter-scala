@@ -26,7 +26,11 @@ import java.net.URI
 import java.util.UUID
 import scala.concurrent.duration.Duration;
 
-class EventStoreSyncForDynamoDBSpec extends AnyFreeSpec with DockerControllerSpecSupport with OptionValues with TryValues {
+class EventStoreSyncForDynamoDBSpec
+    extends AnyFreeSpec
+    with DockerControllerSpecSupport
+    with OptionValues
+    with TryValues {
   val accessKeyId: String         = "AKIAIOSFODNN7EXAMPLE"
   val secretAccessKey: String     = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
   val hostPort: Int               = temporaryServerPort()
