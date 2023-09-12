@@ -1,5 +1,5 @@
 import Dependencies.Versions.scalaTest32Version
-import Dependencies.{Versions, scalaLangModules, scalatest}
+import Dependencies.{ scalaLangModules, scalatest, Versions }
 
 ThisBuild / scalafixScalaBinaryVersion := CrossVersion.binaryScalaVersion(scalaVersion.value)
 
@@ -86,9 +86,10 @@ lazy val root = (project in file("."))
     name := "event-store-adapter-scala",
     libraryDependencies ++= Seq(
       scalatest.scalatest(scalaTest32Version) % Test,
-      "com.github.j5ik2o" %% "docker-controller-scala-scalatest" % "1.15.30" % Test,
-      "com.github.j5ik2o" %% "docker-controller-scala-localstack" % "1.15.30" % Test,
-      "com.github.j5ik2o" % "event-store-adapter-java" % "1.0.10-SNAPSHOT"
+      "com.github.j5ik2o"                    %% "docker-controller-scala-scalatest"  % "1.15.30" % Test,
+      "com.github.j5ik2o"                    %% "docker-controller-scala-localstack" % "1.15.30" % Test,
+      "com.github.j5ik2o"                     % "event-store-adapter-java"           % "1.0.10-SNAPSHOT",
+      "com.fasterxml.jackson.module"         %% "jackson-module-scala"               % "2.15.2"
     ),
     libraryDependencies ++= {
       CrossVersion.partialVersion(scalaVersion.value) match {

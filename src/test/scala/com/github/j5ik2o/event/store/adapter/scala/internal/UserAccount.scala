@@ -1,30 +1,16 @@
-/*
- * Copyright 2023 Junichi Kato
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
 package com.github.j5ik2o.event.store.adapter.scala.internal
 
+import com.fasterxml.jackson.annotation.JsonProperty
 import com.github.j5ik2o.event_store_adatpter_java.Aggregate
 
 import java.time.Instant
 import java.util.UUID
 
 final case class UserAccount private (
-    id: UserAccountId,
-    private var _sequenceNumber: Long,
-    name: String,
-    private var _version: Long
+    @JsonProperty("id") id: UserAccountId,
+    @JsonProperty("sequenceNumber") private var _sequenceNumber: Long,
+    @JsonProperty("name") name: String,
+    @JsonProperty("version") private var _version: Long
 ) extends Aggregate[UserAccountId] {
 
   override def getId: UserAccountId = id
