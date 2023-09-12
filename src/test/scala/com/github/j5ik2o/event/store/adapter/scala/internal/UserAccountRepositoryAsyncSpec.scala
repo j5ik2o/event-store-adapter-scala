@@ -12,7 +12,7 @@ import software.amazon.awssdk.services.dynamodb.DynamoDbClient
 import java.util.UUID
 import java.util.concurrent.Executors
 import scala.concurrent.ExecutionContext
-import scala.concurrent.duration.{ Duration, DurationInt };
+import scala.concurrent.duration._
 
 class UserAccountRepositoryAsyncSpec
     extends AnyFreeSpec
@@ -40,6 +40,11 @@ class UserAccountRepositoryAsyncSpec
       defaultRegion = Some(region.toString)
     )
 
+  val testTimeFactor: Float = sys.env.getOrElse("TEST_TIME_FACTOR", "1").toFloat
+  logger.debug(s"testTimeFactor = $testTimeFactor")
+
+  implicit val pc: PatienceConfig = PatienceConfig((30 * testTimeFactor).seconds, (1 * testTimeFactor).seconds)
+
   override protected val dockerControllers: Vector[DockerController] = Vector(controller)
 
   override protected val waitPredicatesSettings: Map[DockerController, WaitPredicateSetting] =
@@ -55,8 +60,6 @@ class UserAccountRepositoryAsyncSpec
     DynamoDBUtils.createJournalTable(dynamodbClient, journalTableName, journalAidIndexName)
     DynamoDBUtils.createSnapshotTable(dynamodbClient, snapshotTableName, snapshotAidIndexName)
   }
-
-  implicit val pc: PatienceConfig = PatienceConfig(30.seconds, 1.seconds)
 
   "UserAccountRepositoryAsync" - {
     "store and findById" in {
