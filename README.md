@@ -1,7 +1,8 @@
 # event-store-adapter-scala
 
 [![CI](https://github.com/j5ik2o/event-store-adapter-scala/actions/workflows/ci.yml/badge.svg)](https://github.com/j5ik2o/event-store-adapter-scala/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/j5ik2o/event-store-adapter-scala.svg?style=flat-square)](https://github.com/j5ik2o/event-store-adapter-scala/releases/latest)
+[![Maven Central](https://maven-badges.herokuapp.com/maven-central/com.github.j5ik2o/event-store-adapter-scala_2.13/badge.svg)](https://maven-badges.herokuapp.com/maven-central/com.github.j5ik2o/event-store-adapter-scala_2.13)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![tokei](https://tokei.rs/b1/github/j5ik2o/event-store-adapter-scala)](https://github.com/XAMPPRocky/tokei)
 
 This library is designed to turn DynamoDB into an Event Store for Event Sourcing.
