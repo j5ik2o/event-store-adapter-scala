@@ -73,7 +73,7 @@ class EventStoreAsyncForDynamoDBSpec
       val id                 = UserAccountId(UUID.randomUUID().toString)
       val (aggregate, event) = UserAccount.create(id, "test-1")
 
-      eventStore.persistEventAndSnapshot(event, aggregate)
+      eventStore.persistEventAndSnapshot(event, aggregate).futureValue
 
       val (userAccount, _) = eventStore.getLatestSnapshotById(classOf[UserAccount], id).futureValue.value
       assert(userAccount.id == id)
