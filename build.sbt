@@ -55,7 +55,7 @@ lazy val baseSettings = Seq(
       "-Ywarn-unused"
     ) ++ crossScalacOptions(scalaVersion.value)
   ),
-  resolvers ++= Resolver.sonatypeOssRepos("snapshots"),
+  resolvers ++= Resolver.sonatypeOssRepos("staging"),
   resolvers ++= Resolver.sonatypeOssRepos("releases"),
   resolvers += "Seasar Repository" at "https://maven.seasar.org/maven2/",
   semanticdbEnabled := true,
