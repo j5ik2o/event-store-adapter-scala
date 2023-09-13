@@ -76,3 +76,11 @@ val result = for {
   aggregate <- repository.findById(id)
 } yield aggregate
 ```
+
+## テーブル仕様
+
+[docs/DATABASE_SCHEMA.ja.md](docs/DATABASE_SCHEMA.ja.md)を参照してください。
+
+## ライセンス
+
+MITライセンスです。詳細は[LICENSE](LICENSE)を参照してください。
