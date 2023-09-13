@@ -1,10 +1,35 @@
 package com.github.j5ik2o.event.store.adapter.scala
 
-import com.github.j5ik2o.event_store_adatpter_java.{ Aggregate, AggregateId, Event }
+import com.github.j5ik2o.event.store.adapter.java.{ Aggregate, AggregateId, Event }
+import com.github.j5ik2o.event.store.adapter.scala.internal.EventStoreAsyncForDynamoDB
+import software.amazon.awssdk.services.dynamodb.DynamoDbClient
 
 import scala.concurrent.{ ExecutionContext, Future }
 
-trait EventStoreAsync[AID <: AggregateId, A <: Aggregate[AID], E <: Event[AID]] {
+object EventStoreAsync {
+
+  def ofDynamoDB[AID <: AggregateId, A <: Aggregate[AID], E <: Event[AID]](
+      dynamoDbClient: DynamoDbClient,
+      journalTableName: String,
+      snapshotTableName: String,
+      journalAidIndexName: String,
+      snapshotAidIndexName: String,
+      shardCount: Long
+  ): EventStoreAsync[AID, A, E] = {
+    EventStoreAsyncForDynamoDB(
+      dynamoDbClient,
+      journalTableName,
+      snapshotTableName,
+      journalAidIndexName,
+      snapshotAidIndexName,
+      shardCount
+    )
+  }
+
+}
+
+trait EventStoreAsync[AID <: AggregateId, A <: Aggregate[AID], E <: Event[AID]] extends EventStoreOptions[AID, A, E] {
+  override type This = EventStoreAsync[AID, A, E]
 
   def getLatestSnapshotById(clazz: Class[A], id: AID)(implicit ec: ExecutionContext): Future[Option[(A, Long)]]
 

@@ -1,9 +1,11 @@
 package com.github.j5ik2o.event.store.adapter.scala.internal
 
+import com.github.j5ik2o.event.store.adapter.scala.EventStore
+
 import scala.util.{ Success, Try }
 
 class UserAccountRepositorySync(
-    eventStoreForDynamoDB: EventStoreForDynamoDB[UserAccountId, UserAccount, UserAccountEvent]
+    eventStoreForDynamoDB: EventStore[UserAccountId, UserAccount, UserAccountEvent]
 ) {
 
   def store(userAccountEvent: UserAccountEvent, version: Long): Try[Unit] =

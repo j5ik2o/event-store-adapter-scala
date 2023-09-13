@@ -1,8 +1,15 @@
 package com.github.j5ik2o.event.store.adapter.scala.internal
 
+import com.github.j5ik2o.event.store.adapter.java.{
+  Aggregate,
+  AggregateId,
+  Event,
+  EventSerializer,
+  KeyResolver,
+  SnapshotSerializer
+}
 import com.github.j5ik2o.event.store.adapter.scala.EventStore
-import com.github.j5ik2o.event_store_adatpter_java._
-import com.github.j5ik2o.event_store_adatpter_java.internal.{ EventStoreForDynamoDB => JavaEventStoreForDynamoDB }
+import com.github.j5ik2o.event.store.adapter.java.internal.{ EventStoreForDynamoDB => JavaEventStoreForDynamoDB }
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient
 
 import scala.concurrent.duration.FiniteDuration
@@ -42,22 +49,22 @@ final class EventStoreForDynamoDB[AID <: AggregateId, A <: Aggregate[AID], E <: 
     javaEventStore: JavaEventStoreForDynamoDB[AID, A, E]
 ) extends EventStore[AID, A, E] {
 
-  def withKeepSnapshotCount(keepSnapshotCount: Int): EventStoreForDynamoDB[AID, A, E] = {
+  override def withKeepSnapshotCount(keepSnapshotCount: Int): EventStoreForDynamoDB[AID, A, E] = {
     val updated = javaEventStore.withKeepSnapshotCount(keepSnapshotCount)
     EventStoreForDynamoDB(updated)
   }
 
-  def withDeleteTtl(deleteTtl: FiniteDuration): EventStoreForDynamoDB[AID, A, E] = {
+  override def withDeleteTtl(deleteTtl: FiniteDuration): EventStoreForDynamoDB[AID, A, E] = {
     val updated = javaEventStore.withDeleteTtl(deleteTtl.toJava)
     EventStoreForDynamoDB(updated)
   }
 
-  def withKeyResolver(keyResolver: KeyResolver[AID]): EventStoreForDynamoDB[AID, A, E] = {
+  override def withKeyResolver(keyResolver: KeyResolver[AID]): EventStoreForDynamoDB[AID, A, E] = {
     val updated = javaEventStore.withKeyResolver(keyResolver)
     EventStoreForDynamoDB(updated)
   }
 
-  def withEventSerializer(eventSerializer: EventSerializer[AID, E]): EventStoreForDynamoDB[AID, A, E] = {
+  override def withEventSerializer(eventSerializer: EventSerializer[AID, E]): EventStoreForDynamoDB[AID, A, E] = {
     val updated = javaEventStore.withEventSerializer(eventSerializer)
     EventStoreForDynamoDB(updated)
   }

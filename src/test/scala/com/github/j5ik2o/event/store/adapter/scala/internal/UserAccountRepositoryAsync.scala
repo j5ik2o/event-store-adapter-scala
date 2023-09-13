@@ -1,9 +1,11 @@
 package com.github.j5ik2o.event.store.adapter.scala.internal
 
+import com.github.j5ik2o.event.store.adapter.scala.EventStoreAsync
+
 import scala.concurrent.{ ExecutionContext, Future }
 
 class UserAccountRepositoryAsync(
-    eventStoreAsyncForDynamoDB: EventStoreAsyncForDynamoDB[UserAccountId, UserAccount, UserAccountEvent]
+    eventStoreAsyncForDynamoDB: EventStoreAsync[UserAccountId, UserAccount, UserAccountEvent]
 ) {
 
   def store(userAccountEvent: UserAccountEvent, version: Long)(implicit ec: ExecutionContext): Future[Unit] =

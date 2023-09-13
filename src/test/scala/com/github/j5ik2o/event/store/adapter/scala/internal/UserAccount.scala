@@ -1,7 +1,7 @@
 package com.github.j5ik2o.event.store.adapter.scala.internal
 
 import com.fasterxml.jackson.annotation.JsonProperty
-import com.github.j5ik2o.event_store_adatpter_java.Aggregate
+import com.github.j5ik2o.event.store.adapter.java.Aggregate
 
 import java.time.Instant
 import java.util.UUID

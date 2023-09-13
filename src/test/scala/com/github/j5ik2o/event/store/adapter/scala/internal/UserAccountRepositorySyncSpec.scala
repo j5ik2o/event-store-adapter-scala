@@ -2,6 +2,7 @@ package com.github.j5ik2o.event.store.adapter.scala.internal
 
 import com.github.j5ik2o.dockerController.localstack.{ LocalStackController, Service }
 import com.github.j5ik2o.dockerController.{ DockerController, DockerControllerSpecSupport, WaitPredicates }
+import com.github.j5ik2o.event.store.adapter.scala.EventStore
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{ OptionValues, TryValues }
@@ -55,7 +56,7 @@ class UserAccountRepositorySyncSpec
 
   "UserAccountRepository" - {
     "store and findById" in {
-      val eventStore = EventStoreForDynamoDB[UserAccountId, UserAccount, UserAccountEvent](
+      val eventStore = EventStore.ofDynamoDB[UserAccountId, UserAccount, UserAccountEvent](
         dynamodbClient,
         journalTableName,
         snapshotTableName,
