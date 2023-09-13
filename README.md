@@ -55,7 +55,7 @@ class UserAccountRepositoryAsync(
 }
 ```
 
-The following is an example of the repository usage
+The following is an example of the repository usage.
 
 ```scala
 val eventStore = EventStoreAsyncForDynamoDB[UserAccountId, UserAccount, UserAccountEvent](
