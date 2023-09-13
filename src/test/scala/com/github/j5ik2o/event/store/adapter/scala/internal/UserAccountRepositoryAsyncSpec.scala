@@ -2,6 +2,7 @@ package com.github.j5ik2o.event.store.adapter.scala.internal
 
 import com.github.j5ik2o.dockerController.localstack.{ LocalStackController, Service }
 import com.github.j5ik2o.dockerController.{ DockerController, DockerControllerSpecSupport, WaitPredicates }
+import com.github.j5ik2o.event.store.adapter.scala.EventStoreAsync
 import org.scalatest.OptionValues
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.freespec.AnyFreeSpec
@@ -64,7 +65,7 @@ class UserAccountRepositoryAsyncSpec
   "UserAccountRepositoryAsync" - {
     "store and findById" in {
       implicit val ec = ExecutionContext.fromExecutorService(Executors.newCachedThreadPool())
-      val eventStore = EventStoreAsyncForDynamoDB[UserAccountId, UserAccount, UserAccountEvent](
+      val eventStore = EventStoreAsync.ofDynamoDB[UserAccountId, UserAccount, UserAccountEvent](
         dynamodbClient,
         journalTableName,
         snapshotTableName,

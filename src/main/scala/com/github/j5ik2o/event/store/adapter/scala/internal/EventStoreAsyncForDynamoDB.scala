@@ -1,7 +1,14 @@
 package com.github.j5ik2o.event.store.adapter.scala.internal
 
-import com.github.j5ik2o.event.store.adapter.scala.EventStoreAsync
-import com.github.j5ik2o.event_store_adatpter_java._
+import com.github.j5ik2o.event.store.adapter.java.{
+  Aggregate,
+  AggregateId,
+  Event,
+  EventSerializer,
+  KeyResolver,
+  SnapshotSerializer
+}
+import com.github.j5ik2o.event.store.adapter.scala.{ EventStore, EventStoreAsync }
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient
 
 import scala.concurrent.duration.FiniteDuration
@@ -9,7 +16,7 @@ import scala.concurrent.{ ExecutionContext, Future }
 
 object EventStoreAsyncForDynamoDB {
   def apply[AID <: AggregateId, A <: Aggregate[AID], E <: Event[AID]](
-      underlying: EventStoreForDynamoDB[AID, A, E]
+      underlying: EventStore[AID, A, E]
   ): EventStoreAsyncForDynamoDB[AID, A, E] = new EventStoreAsyncForDynamoDB(underlying)
 
   def apply[AID <: AggregateId, A <: Aggregate[AID], E <: Event[AID]](
@@ -21,7 +28,7 @@ object EventStoreAsyncForDynamoDB {
       shardCount: Long
   ): EventStoreAsyncForDynamoDB[AID, A, E] = {
     apply(
-      EventStoreForDynamoDB[AID, A, E](
+      EventStore.ofDynamoDB[AID, A, E](
         dynamoDbClient,
         journalTableName,
         snapshotTableName,
@@ -34,30 +41,32 @@ object EventStoreAsyncForDynamoDB {
 }
 
 final class EventStoreAsyncForDynamoDB[AID <: AggregateId, A <: Aggregate[AID], E <: Event[AID]] private (
-    underlying: EventStoreForDynamoDB[AID, A, E]
+    underlying: EventStore[AID, A, E]
 ) extends EventStoreAsync[AID, A, E] {
 
-  def withKeepSnapshotCount(keepSnapshotCount: Int): EventStoreAsyncForDynamoDB[AID, A, E] = {
+  override def withKeepSnapshotCount(keepSnapshotCount: Int): EventStoreAsyncForDynamoDB[AID, A, E] = {
     val updated = underlying.withKeepSnapshotCount(keepSnapshotCount)
     EventStoreAsyncForDynamoDB(updated)
   }
 
-  def withDeleteTtl(deleteTtl: FiniteDuration): EventStoreAsyncForDynamoDB[AID, A, E] = {
+  override def withDeleteTtl(deleteTtl: FiniteDuration): EventStoreAsyncForDynamoDB[AID, A, E] = {
     val updated = underlying.withDeleteTtl(deleteTtl)
     EventStoreAsyncForDynamoDB(updated)
   }
 
-  def withKeyResolver(keyResolver: KeyResolver[AID]): EventStoreAsyncForDynamoDB[AID, A, E] = {
+  override def withKeyResolver(keyResolver: KeyResolver[AID]): EventStoreAsyncForDynamoDB[AID, A, E] = {
     val updated = underlying.withKeyResolver(keyResolver)
     EventStoreAsyncForDynamoDB(updated)
   }
 
-  def withEventSerializer(eventSerializer: EventSerializer[AID, E]): EventStoreAsyncForDynamoDB[AID, A, E] = {
+  override def withEventSerializer(eventSerializer: EventSerializer[AID, E]): EventStoreAsyncForDynamoDB[AID, A, E] = {
     val updated = underlying.withEventSerializer(eventSerializer)
     EventStoreAsyncForDynamoDB(updated)
   }
 
-  def withSnapshotSerializer(snapshotSerializer: SnapshotSerializer[AID, A]): EventStoreAsyncForDynamoDB[AID, A, E] = {
+  override def withSnapshotSerializer(
+      snapshotSerializer: SnapshotSerializer[AID, A]
+  ): EventStoreAsyncForDynamoDB[AID, A, E] = {
     val updated = underlying.withSnapshotSerializer(snapshotSerializer)
     EventStoreAsyncForDynamoDB(updated)
   }

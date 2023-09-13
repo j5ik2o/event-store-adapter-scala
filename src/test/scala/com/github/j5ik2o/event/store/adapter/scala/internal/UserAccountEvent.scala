@@ -1,7 +1,7 @@
 package com.github.j5ik2o.event.store.adapter.scala.internal
 
 import com.fasterxml.jackson.annotation.{ JsonIgnoreProperties, JsonSubTypes, JsonTypeInfo, JsonTypeName }
-import com.github.j5ik2o.event_store_adatpter_java.Event
+import com.github.j5ik2o.event.store.adapter.java.Event
 
 import java.time.Instant
 
