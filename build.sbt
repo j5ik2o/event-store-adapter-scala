@@ -77,9 +77,16 @@ lazy val baseSettings = Seq(
 )
 
 def versionFromFile: String = {
-  val source = scala.io.Source.fromFile("version")
-  try source.mkString.trim
-  finally source.close()
+  var source: scala.io.Source = null
+  try {
+    source = scala.io.Source.fromFile("version")
+    val version = source.mkString.trim
+    println(s"version = $version")
+    version
+  } finally {
+    if (source != null)
+      source.close()
+  }
 }
 
 ThisBuild / version := versionFromFile
