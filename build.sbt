@@ -101,7 +101,7 @@ lazy val root = (project in file("."))
       scalatest.scalatest(scalaTest32Version) % Test,
       "com.github.j5ik2o"                    %% "docker-controller-scala-scalatest"  % "1.15.30" % Test,
       "com.github.j5ik2o"                    %% "docker-controller-scala-localstack" % "1.15.30" % Test,
-      "com.github.j5ik2o"                     % "event-store-adapter-java"           % "1.0.10-SNAPSHOT",
+      "com.github.j5ik2o"                     % "event-store-adapter-java"           % "1.0.14",
       "com.fasterxml.jackson.module"         %% "jackson-module-scala"               % "2.15.2"
     ),
     libraryDependencies ++= {
