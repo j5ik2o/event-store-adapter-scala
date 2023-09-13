@@ -27,22 +27,22 @@ You can easily implement an Event Sourcing-enabled repository using EventStore.
 
 ```scala
 class UserAccountRepositoryAsync(
-    eventStoreAsyncForDynamoDB: EventStoreAsyncForDynamoDB[UserAccountId, UserAccount, UserAccountEvent]
+    eventStoreAsync: EventStoreAsync[UserAccountId, UserAccount, UserAccountEvent]
 ) {
 
   def store(userAccountEvent: UserAccountEvent, version: Long)
     (implicit ec: ExecutionContext): Future[Unit] =
-    eventStoreAsyncForDynamoDB.persistEvent(userAccountEvent, version)
+    eventStoreAsync.persistEvent(userAccountEvent, version)
 
   def store(userAccountEvent: UserAccountEvent, userAccount: UserAccount)
     (implicit ec: ExecutionContext): Future[Unit] =
-    eventStoreAsyncForDynamoDB.persistEventAndSnapshot(userAccountEvent, userAccount)
+    eventStoreAsync.persistEventAndSnapshot(userAccountEvent, userAccount)
 
   def findById(id: UserAccountId)
     (implicit ec: ExecutionContext): Future[Option[UserAccount]] = {
-    eventStoreAsyncForDynamoDB.getLatestSnapshotById(classOf[UserAccount], id).flatMap {
+    eventStoreAsync.getLatestSnapshotById(classOf[UserAccount], id).flatMap {
       case Some((userAccount, version)) =>
-        eventStoreAsyncForDynamoDB
+        eventStoreAsync
           .getEventsByIdSinceSequenceNumber(
             classOf[UserAccountEvent], id, userAccount.sequenceNumber).map { events =>
             Some(UserAccount.replay(events, userAccount, version))
@@ -58,7 +58,7 @@ class UserAccountRepositoryAsync(
 The following is an example of the repository usage.
 
 ```scala
-val eventStore = EventStoreAsyncForDynamoDB[UserAccountId, UserAccount, UserAccountEvent](
+val eventStore = EventStoreAsync.ofDynamoDB[UserAccountId, UserAccount, UserAccountEvent](
   dynamodbClient,
   journalTableName,
   snapshotTableName,
