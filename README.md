@@ -88,5 +88,6 @@ MIT License. See [LICENSE](LICENSE) for details.
 ## Other language implementations
 
 - [for Java](https://github.com/j5ik2o/event-store-adapter-java)
+- [for Kotlin](https://github.com/j5ik2o/event-store-adapter-kotlin)
 - [for Rust](https://github.com/j5ik2o/event-store-adapter-rs)
 - [for Go](https://github.com/j5ik2o/event-store-adapter-go)
