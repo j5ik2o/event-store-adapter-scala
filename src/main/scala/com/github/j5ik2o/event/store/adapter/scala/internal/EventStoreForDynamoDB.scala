@@ -18,13 +18,13 @@ import scala.jdk.DurationConverters._
 import scala.jdk.OptionConverters._
 import scala.util.Try
 
-object EventStoreForDynamoDB {
+private[scala] object EventStoreForDynamoDB {
 
-  def apply[AID <: AggregateId, A <: Aggregate[AID], E <: Event[AID]](
-      underlying: JavaEventStoreForDynamoDB[AID, A, E]
-  ): EventStoreForDynamoDB[AID, A, E] = new EventStoreForDynamoDB(underlying)
+  def create[AID <: AggregateId, A <: Aggregate[AID], E <: Event[AID]](
+      javaEventStore: JavaEventStoreForDynamoDB[AID, A, E]
+  ): EventStoreForDynamoDB[AID, A, E] = new EventStoreForDynamoDB(javaEventStore)
 
-  def apply[AID <: AggregateId, A <: Aggregate[AID], E <: Event[AID]](
+  def create[AID <: AggregateId, A <: Aggregate[AID], E <: Event[AID]](
       dynamoDbClient: DynamoDbClient,
       journalTableName: String,
       snapshotTableName: String,
@@ -32,7 +32,7 @@ object EventStoreForDynamoDB {
       snapshotAidIndexName: String,
       shardCount: Long
   ): EventStoreForDynamoDB[AID, A, E] = {
-    apply(
+    create(
       JavaEventStoreForDynamoDB.create[AID, A, E](
         dynamoDbClient,
         journalTableName,
@@ -45,35 +45,33 @@ object EventStoreForDynamoDB {
   }
 }
 
-final class EventStoreForDynamoDB[AID <: AggregateId, A <: Aggregate[AID], E <: Event[AID]](
+final class EventStoreForDynamoDB[AID <: AggregateId, A <: Aggregate[AID], E <: Event[AID]] private (
     underlying: JavaEventStoreForDynamoDB[AID, A, E]
 ) extends EventStore[AID, A, E] {
 
   override def withKeepSnapshotCount(keepSnapshotCount: Int): EventStoreForDynamoDB[AID, A, E] = {
     val updated = underlying.withKeepSnapshotCount(keepSnapshotCount)
-    EventStoreForDynamoDB(updated)
+    EventStoreForDynamoDB.create(updated)
   }
 
   override def withDeleteTtl(deleteTtl: FiniteDuration): EventStoreForDynamoDB[AID, A, E] = {
     val updated = underlying.withDeleteTtl(deleteTtl.toJava)
-    EventStoreForDynamoDB(updated)
+    EventStoreForDynamoDB.create(updated)
   }
 
   override def withKeyResolver(keyResolver: KeyResolver[AID]): EventStoreForDynamoDB[AID, A, E] = {
     val updated = underlying.withKeyResolver(keyResolver)
-    EventStoreForDynamoDB(updated)
+    EventStoreForDynamoDB.create(updated)
   }
 
   override def withEventSerializer(eventSerializer: EventSerializer[AID, E]): EventStoreForDynamoDB[AID, A, E] = {
     val updated = underlying.withEventSerializer(eventSerializer)
-    EventStoreForDynamoDB(updated)
+    EventStoreForDynamoDB.create(updated)
   }
 
-  override def withSnapshotSerializer(
-      snapshotSerializer: SnapshotSerializer[AID, A]
-  ): EventStoreForDynamoDB[AID, A, E] = {
+  def withSnapshotSerializer(snapshotSerializer: SnapshotSerializer[AID, A]): EventStoreForDynamoDB[AID, A, E] = {
     val updated = underlying.withSnapshotSerializer(snapshotSerializer)
-    EventStoreForDynamoDB(updated)
+    EventStoreForDynamoDB.create(updated)
   }
 
   override def getLatestSnapshotById(clazz: Class[A], id: AID): Try[Option[(A, Long)]] = Try {

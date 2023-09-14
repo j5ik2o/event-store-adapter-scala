@@ -7,7 +7,7 @@ import org.scalatest.OptionValues
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.freespec.AnyFreeSpec
 import software.amazon.awssdk.regions.Region
-import software.amazon.awssdk.services.dynamodb.DynamoDbClient
+import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
 
 import java.util.UUID
 import java.util.concurrent.Executors
@@ -51,20 +51,21 @@ class EventStoreAsyncForDynamoDBSpec
       controller -> WaitPredicateSetting(Duration.Inf, WaitPredicates.forLogMessageExactly("Ready."))
     )
 
-  val dynamodbClient: DynamoDbClient =
-    DynamoDBUtils.dynamodbClient(endpointForDynamoDB, accessKeyId, secretAccessKey, region)
+  val dynamodbAsyncClient: DynamoDbAsyncClient =
+    DynamoDBUtils.dynamodbAsyncClient(endpointForDynamoDB, accessKeyId, secretAccessKey, region)
 
   override protected def afterStartContainers(): Unit = {
     super.afterStartContainers()
-    DynamoDBUtils.createJournalTable(dynamodbClient, journalTableName, journalAidIndexName)
-    DynamoDBUtils.createSnapshotTable(dynamodbClient, snapshotTableName, snapshotAidIndexName)
+    implicit val ec = ExecutionContext.fromExecutorService(Executors.newCachedThreadPool())
+    DynamoDBUtils.createJournalTableAsync(dynamodbAsyncClient, journalTableName, journalAidIndexName)
+    DynamoDBUtils.createSnapshotTableAsync(dynamodbAsyncClient, snapshotTableName, snapshotAidIndexName)
   }
 
   "EventStore" - {
     "persistEventAndSnapshot and getLatestSnapshotById" in {
       implicit val ec = ExecutionContext.fromExecutorService(Executors.newCachedThreadPool())
       val eventStore = EventStoreAsync.ofDynamoDB[UserAccountId, UserAccount, UserAccountEvent](
-        dynamodbClient,
+        dynamodbAsyncClient,
         journalTableName,
         snapshotTableName,
         journalAidIndexName,

@@ -15,7 +15,7 @@ object EventStore {
       snapshotAidIndexName: String,
       shardCount: Long
   ): EventStore[AID, A, E] = {
-    EventStoreForDynamoDB(
+    EventStoreForDynamoDB.create(
       dynamoDbClient,
       journalTableName,
       snapshotTableName,
