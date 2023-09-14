@@ -21,8 +21,8 @@ import scala.util.Try
 object EventStoreForDynamoDB {
 
   def apply[AID <: AggregateId, A <: Aggregate[AID], E <: Event[AID]](
-      javaEventStore: JavaEventStoreForDynamoDB[AID, A, E]
-  ): EventStoreForDynamoDB[AID, A, E] = new EventStoreForDynamoDB(javaEventStore)
+      underlying: JavaEventStoreForDynamoDB[AID, A, E]
+  ): EventStoreForDynamoDB[AID, A, E] = new EventStoreForDynamoDB(underlying)
 
   def apply[AID <: AggregateId, A <: Aggregate[AID], E <: Event[AID]](
       dynamoDbClient: DynamoDbClient,
@@ -46,51 +46,53 @@ object EventStoreForDynamoDB {
 }
 
 final class EventStoreForDynamoDB[AID <: AggregateId, A <: Aggregate[AID], E <: Event[AID]](
-    javaEventStore: JavaEventStoreForDynamoDB[AID, A, E]
+    underlying: JavaEventStoreForDynamoDB[AID, A, E]
 ) extends EventStore[AID, A, E] {
 
   override def withKeepSnapshotCount(keepSnapshotCount: Int): EventStoreForDynamoDB[AID, A, E] = {
-    val updated = javaEventStore.withKeepSnapshotCount(keepSnapshotCount)
+    val updated = underlying.withKeepSnapshotCount(keepSnapshotCount)
     EventStoreForDynamoDB(updated)
   }
 
   override def withDeleteTtl(deleteTtl: FiniteDuration): EventStoreForDynamoDB[AID, A, E] = {
-    val updated = javaEventStore.withDeleteTtl(deleteTtl.toJava)
+    val updated = underlying.withDeleteTtl(deleteTtl.toJava)
     EventStoreForDynamoDB(updated)
   }
 
   override def withKeyResolver(keyResolver: KeyResolver[AID]): EventStoreForDynamoDB[AID, A, E] = {
-    val updated = javaEventStore.withKeyResolver(keyResolver)
+    val updated = underlying.withKeyResolver(keyResolver)
     EventStoreForDynamoDB(updated)
   }
 
   override def withEventSerializer(eventSerializer: EventSerializer[AID, E]): EventStoreForDynamoDB[AID, A, E] = {
-    val updated = javaEventStore.withEventSerializer(eventSerializer)
+    val updated = underlying.withEventSerializer(eventSerializer)
     EventStoreForDynamoDB(updated)
   }
 
-  def withSnapshotSerializer(snapshotSerializer: SnapshotSerializer[AID, A]): EventStoreForDynamoDB[AID, A, E] = {
-    val updated = javaEventStore.withSnapshotSerializer(snapshotSerializer)
+  override def withSnapshotSerializer(
+      snapshotSerializer: SnapshotSerializer[AID, A]
+  ): EventStoreForDynamoDB[AID, A, E] = {
+    val updated = underlying.withSnapshotSerializer(snapshotSerializer)
     EventStoreForDynamoDB(updated)
   }
 
   override def getLatestSnapshotById(clazz: Class[A], id: AID): Try[Option[(A, Long)]] = Try {
-    javaEventStore
+    underlying
       .getLatestSnapshotById(clazz, id).map { result =>
         (result.getAggregate, result.getVersion)
       }.toScala
   }
 
   override def getEventsByIdSinceSequenceNumber(clazz: Class[E], id: AID, sequenceNumber: Long): Try[Seq[E]] = Try {
-    javaEventStore.getEventsByIdSinceSequenceNumber(clazz, id, sequenceNumber).asScala.toSeq
+    underlying.getEventsByIdSinceSequenceNumber(clazz, id, sequenceNumber).asScala.toSeq
   }
 
   override def persistEvent(event: E, version: Long): Try[Unit] = Try {
-    javaEventStore.persistEvent(event, version)
+    underlying.persistEvent(event, version)
   }
 
   override def persistEventAndSnapshot(event: E, snapshot: A): Try[Unit] = Try {
-    javaEventStore.persistEventAndSnapshot(event, snapshot)
+    underlying.persistEventAndSnapshot(event, snapshot)
   }
 
 }
