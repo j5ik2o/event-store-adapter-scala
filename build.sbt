@@ -37,7 +37,7 @@ lazy val baseSettings = Seq(
       "scm:git@github.com:j5ik2o/akka-persistence-dynamodb.git"
     )
   ),
-  scalaVersion := Versions.scala3Version,
+  scalaVersion := Versions.scala213Version,
   crossScalaVersions := Seq(
     Versions.scala213Version,
     Versions.scala3Version
