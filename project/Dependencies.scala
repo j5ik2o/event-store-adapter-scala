@@ -16,11 +16,6 @@ object Dependencies {
 
   import Versions._
 
-  object slf4j {
-    val api        = "org.slf4j" % "slf4j-api"    % slf4jVersion
-    val julToSlf4J = "org.slf4j" % "jul-to-slf4j" % slf4jVersion
-  }
-
   object fasterxml {
     val jacksonModuleScala = "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.15.2"
   }

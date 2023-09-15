@@ -1,5 +1,4 @@
-import Dependencies.Versions.scalaTest32Version
-import Dependencies.{ fasterxml, j5ik2o, scalatest, Versions }
+import Dependencies.{ fasterxml, j5ik2o, logback, scalatest, Versions }
 
 ThisBuild / scalafixScalaBinaryVersion := CrossVersion.binaryScalaVersion(scalaVersion.value)
 
@@ -96,6 +95,7 @@ lazy val root = (project in file("."))
     name := "event-store-adapter-scala",
     libraryDependencies ++= Seq(
       scalatest.scalatest                % Test,
+      logback.classic                    % Test,
       j5ik2o.dockerController_ScalaTest  % Test,
       j5ik2o.dockerController_LocalStack % Test,
       j5ik2o.eventStoreAdapterJava,
