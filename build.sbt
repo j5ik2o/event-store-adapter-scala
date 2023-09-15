@@ -1,5 +1,5 @@
 import Dependencies.Versions.scalaTest32Version
-import Dependencies.{ scalaLangModules, scalatest, Versions }
+import Dependencies.{ fasterxml, j5ik2o, scalatest, Versions }
 
 ThisBuild / scalafixScalaBinaryVersion := CrossVersion.binaryScalaVersion(scalaVersion.value)
 
@@ -10,7 +10,7 @@ def crossScalacOptions(scalaVersion: String): Seq[String] =
         "-source:3.0-migration",
         "-Xignore-scala2-macros"
       )
-    case Some((2L, scalaMajor)) if scalaMajor >= 12 =>
+    case Some((2L, scalaMajor)) if scalaMajor == 13 =>
       Seq(
         "-Ydelambdafy:method",
         "-target:jvm-1.8",
@@ -39,7 +39,8 @@ lazy val baseSettings = Seq(
   ),
   scalaVersion := Versions.scala213Version,
   crossScalaVersions := Seq(
-    Versions.scala213Version
+    Versions.scala213Version,
+    Versions.scala3Version
   ),
   scalacOptions ++= (
     Seq(
@@ -48,11 +49,7 @@ lazy val baseSettings = Seq(
       "-unchecked",
       "-encoding",
       "UTF-8",
-      "-language:_",
-      "-Ydelambdafy:method",
-      "-target:jvm-1.8",
-      "-Yrangepos",
-      "-Ywarn-unused"
+      "-language:_"
     ) ++ crossScalacOptions(scalaVersion.value)
   ),
   resolvers ++= Resolver.sonatypeOssRepos("staging"),
@@ -98,22 +95,12 @@ lazy val root = (project in file("."))
   .settings(
     name := "event-store-adapter-scala",
     libraryDependencies ++= Seq(
-      scalatest.scalatest(scalaTest32Version) % Test,
-      "com.github.j5ik2o"                    %% "docker-controller-scala-scalatest"  % "1.15.30" % Test,
-      "com.github.j5ik2o"                    %% "docker-controller-scala-localstack" % "1.15.30" % Test,
-      "com.github.j5ik2o"                     % "event-store-adapter-java"           % "1.0.15",
-      "com.fasterxml.jackson.module"         %% "jackson-module-scala"               % "2.15.2"
-    ),
-    libraryDependencies ++= {
-      CrossVersion.partialVersion(scalaVersion.value) match {
-        case Some((2L, scalaMajor)) if scalaMajor == 12 =>
-          Seq(
-            scalaLangModules.scalaCollectionCompat
-          )
-        case _ =>
-          Seq.empty
-      }
-    }
+      scalatest.scalatest                % Test,
+      j5ik2o.dockerController_ScalaTest  % Test,
+      j5ik2o.dockerController_LocalStack % Test,
+      j5ik2o.eventStoreAdapterJava,
+      fasterxml.jacksonModuleScala
+    )
   )
 
 // --- Custom commands

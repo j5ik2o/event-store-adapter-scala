@@ -41,7 +41,8 @@ class EventStoreAsyncForDynamoDBSpec
   val testTimeFactor: Float = sys.env.getOrElse("TEST_TIME_FACTOR", "1").toFloat
   logger.debug(s"testTimeFactor = $testTimeFactor")
 
-  implicit val pc: PatienceConfig = PatienceConfig((30 * testTimeFactor).seconds, (1 * testTimeFactor).seconds)
+  implicit val pc: PatienceConfig =
+    PatienceConfig((30 * testTimeFactor).toInt.seconds, (1 * testTimeFactor).toInt.seconds)
 
   override protected val dockerControllers: Vector[DockerController] = Vector(controller)
 
