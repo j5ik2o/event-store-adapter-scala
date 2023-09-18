@@ -20,11 +20,11 @@ import scala.util.Try
 
 private[scala] object EventStoreForDynamoDB {
 
-  def create[AID <: AggregateId, A <: Aggregate[AID], E <: Event[AID]](
+  def create[AID <: AggregateId, A <: Aggregate[A, AID], E <: Event[AID]](
       javaEventStore: JavaEventStoreForDynamoDB[AID, A, E]
   ): EventStoreForDynamoDB[AID, A, E] = new EventStoreForDynamoDB(javaEventStore)
 
-  def create[AID <: AggregateId, A <: Aggregate[AID], E <: Event[AID]](
+  def create[AID <: AggregateId, A <: Aggregate[A, AID], E <: Event[AID]](
       dynamoDbClient: DynamoDbClient,
       journalTableName: String,
       snapshotTableName: String,
@@ -45,7 +45,7 @@ private[scala] object EventStoreForDynamoDB {
   }
 }
 
-final class EventStoreForDynamoDB[AID <: AggregateId, A <: Aggregate[AID], E <: Event[AID]] private (
+final class EventStoreForDynamoDB[AID <: AggregateId, A <: Aggregate[A, AID], E <: Event[AID]] private (
     underlying: JavaEventStoreForDynamoDB[AID, A, E]
 ) extends EventStore[AID, A, E] {
 
@@ -74,11 +74,9 @@ final class EventStoreForDynamoDB[AID <: AggregateId, A <: Aggregate[AID], E <: 
     EventStoreForDynamoDB.create(updated)
   }
 
-  override def getLatestSnapshotById(clazz: Class[A], id: AID): Try[Option[(A, Long)]] = Try {
+  override def getLatestSnapshotById(clazz: Class[A], id: AID): Try[Option[A]] = Try {
     underlying
-      .getLatestSnapshotById(clazz, id).map { result =>
-        (result.getAggregate, result.getVersion)
-      }.toScala
+      .getLatestSnapshotById(clazz, id).toScala
   }
 
   override def getEventsByIdSinceSequenceNumber(clazz: Class[E], id: AID, sequenceNumber: Long): Try[Seq[E]] = Try {

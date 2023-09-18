@@ -16,10 +16,10 @@ class UserAccountRepositorySync(
 
   def findById(id: UserAccountId): Try[Option[UserAccount]] = {
     eventStoreForDynamoDB.getLatestSnapshotById(classOf[UserAccount], id).flatMap {
-      case Some((userAccount, version)) =>
+      case Some(userAccount) =>
         eventStoreForDynamoDB
           .getEventsByIdSinceSequenceNumber(classOf[UserAccountEvent], id, userAccount.sequenceNumber).map { events =>
-            Some(UserAccount.replay(events, userAccount, version))
+            Some(UserAccount.replay(events, userAccount))
           }
       case None =>
         Success(None)

@@ -11,7 +11,7 @@ final case class UserAccount private (
     @JsonProperty("sequenceNumber") private var _sequenceNumber: Long,
     @JsonProperty("name") name: String,
     @JsonProperty("version") private var _version: Long
-) extends Aggregate[UserAccountId] {
+) extends Aggregate[UserAccount, UserAccountId] {
 
   override def getId: UserAccountId = id
 
@@ -36,6 +36,7 @@ final case class UserAccount private (
     (updated, UserAccountEvent.Renamed(UUID.randomUUID().toString, id, updated._sequenceNumber, name, Instant.now()))
   }
 
+  override def withVersion(version: Long): UserAccount = copy(_version = version)
 }
 
 object UserAccount {
@@ -46,12 +47,10 @@ object UserAccount {
     (userAccount, UserAccountEvent.Created(UUID.randomUUID().toString, id, 0L, name, Instant.now()))
   }
 
-  def replay(events: Seq[UserAccountEvent], snapshot: UserAccount, version: Long): UserAccount = {
-    val result = events.foldLeft(snapshot) { (acc, event) =>
+  def replay(events: Seq[UserAccountEvent], snapshot: UserAccount): UserAccount = {
+    events.foldLeft(snapshot) { (acc, event) =>
       acc.applyEvent(event)
     }
-    result._version = version
-    result
   }
 
 }
