@@ -7,7 +7,7 @@ import software.amazon.awssdk.services.dynamodb.DynamoDbClient
 import scala.util.Try
 
 object EventStore {
-  def ofDynamoDB[AID <: AggregateId, A <: Aggregate[AID], E <: Event[AID]](
+  def ofDynamoDB[AID <: AggregateId, A <: Aggregate[A, AID], E <: Event[AID]](
       dynamoDbClient: DynamoDbClient,
       journalTableName: String,
       snapshotTableName: String,
@@ -26,10 +26,10 @@ object EventStore {
   }
 }
 
-trait EventStore[AID <: AggregateId, A <: Aggregate[AID], E <: Event[AID]] extends EventStoreOptions[AID, A, E] {
+trait EventStore[AID <: AggregateId, A <: Aggregate[A, AID], E <: Event[AID]] extends EventStoreOptions[AID, A, E] {
   override type This = EventStore[AID, A, E]
 
-  def getLatestSnapshotById(clazz: Class[A], id: AID): Try[Option[(A, Long)]]
+  def getLatestSnapshotById(clazz: Class[A], id: AID): Try[Option[A]]
 
   def getEventsByIdSinceSequenceNumber(clazz: Class[E], id: AID, sequenceNumber: Long): Try[Seq[E]]
 

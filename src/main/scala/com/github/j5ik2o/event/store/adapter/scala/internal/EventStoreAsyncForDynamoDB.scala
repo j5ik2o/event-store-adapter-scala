@@ -20,11 +20,11 @@ import scala.jdk.OptionConverters._
 import scala.jdk.CollectionConverters._
 
 private[scala] object EventStoreAsyncForDynamoDB {
-  def create[AID <: AggregateId, A <: Aggregate[AID], E <: Event[AID]](
+  def create[AID <: AggregateId, A <: Aggregate[A, AID], E <: Event[AID]](
       underlying: JavaEventStoreAsync[AID, A, E]
   ): EventStoreAsyncForDynamoDB[AID, A, E] = new EventStoreAsyncForDynamoDB(underlying)
 
-  def create[AID <: AggregateId, A <: Aggregate[AID], E <: Event[AID]](
+  def create[AID <: AggregateId, A <: Aggregate[A, AID], E <: Event[AID]](
       dynamoDbAsyncClient: DynamoDbAsyncClient,
       journalTableName: String,
       snapshotTableName: String,
@@ -45,7 +45,7 @@ private[scala] object EventStoreAsyncForDynamoDB {
   }
 }
 
-final class EventStoreAsyncForDynamoDB[AID <: AggregateId, A <: Aggregate[AID], E <: Event[AID]] private (
+final class EventStoreAsyncForDynamoDB[AID <: AggregateId, A <: Aggregate[A, AID], E <: Event[AID]] private (
     underlying: JavaEventStoreAsync[AID, A, E]
 ) extends EventStoreAsync[AID, A, E] {
 
@@ -78,11 +78,8 @@ final class EventStoreAsyncForDynamoDB[AID <: AggregateId, A <: Aggregate[AID], 
 
   override def getLatestSnapshotById(clazz: Class[A], id: AID)(implicit
       ec: ExecutionContext
-  ): Future[Option[(A, Long)]] = {
-    underlying.getLatestSnapshotById(clazz, id).asScala.map(_.toScala).map {
-      case Some(result) => Some((result.getAggregate, result.getVersion))
-      case None         => None
-    }
+  ): Future[Option[A]] = {
+    underlying.getLatestSnapshotById(clazz, id).asScala.map(_.toScala)
   }
 
   override def getEventsByIdSinceSequenceNumber(clazz: Class[E], id: AID, sequenceNumber: Long)(implicit

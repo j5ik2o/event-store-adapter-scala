@@ -16,10 +16,10 @@ class UserAccountRepositoryAsync(
 
   def findById(id: UserAccountId)(implicit ec: ExecutionContext): Future[Option[UserAccount]] = {
     eventStoreAsyncForDynamoDB.getLatestSnapshotById(classOf[UserAccount], id).flatMap {
-      case Some((userAccount, version)) =>
+      case Some(userAccount) =>
         eventStoreAsyncForDynamoDB
           .getEventsByIdSinceSequenceNumber(classOf[UserAccountEvent], id, userAccount.sequenceNumber).map { events =>
-            Some(UserAccount.replay(events, userAccount, version))
+            Some(UserAccount.replay(events, userAccount))
           }
       case None =>
         Future.successful(None)

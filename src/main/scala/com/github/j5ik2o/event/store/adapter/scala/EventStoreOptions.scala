@@ -11,7 +11,7 @@ import com.github.j5ik2o.event.store.adapter.java.{
 
 import scala.concurrent.duration.FiniteDuration
 
-trait EventStoreOptions[AID <: AggregateId, A <: Aggregate[AID], E <: Event[AID]] {
+trait EventStoreOptions[AID <: AggregateId, A <: Aggregate[A, AID], E <: Event[AID]] {
   type This <: EventStoreOptions[AID, A, E]
 
   def withKeepSnapshotCount(keepSnapshotCount: Int): This

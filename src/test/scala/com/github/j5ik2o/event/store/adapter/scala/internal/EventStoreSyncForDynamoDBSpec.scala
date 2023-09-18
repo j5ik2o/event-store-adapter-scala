@@ -67,7 +67,7 @@ class EventStoreSyncForDynamoDBSpec
 
       eventStore.persistEventAndSnapshot(event, aggregate)
 
-      val (userAccount, _) = eventStore.getLatestSnapshotById(classOf[UserAccount], id).success.value.value
+      val userAccount = eventStore.getLatestSnapshotById(classOf[UserAccount], id).success.value.value
       assert(userAccount.id == id)
       assert(userAccount.name == "test-1")
 

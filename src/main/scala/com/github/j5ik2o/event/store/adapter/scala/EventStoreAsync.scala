@@ -8,7 +8,7 @@ import scala.concurrent.{ ExecutionContext, Future }
 
 object EventStoreAsync {
 
-  def ofDynamoDB[AID <: AggregateId, A <: Aggregate[AID], E <: Event[AID]](
+  def ofDynamoDB[AID <: AggregateId, A <: Aggregate[A, AID], E <: Event[AID]](
       dynamoDbAsyncClient: DynamoDbAsyncClient,
       journalTableName: String,
       snapshotTableName: String,
@@ -28,10 +28,11 @@ object EventStoreAsync {
 
 }
 
-trait EventStoreAsync[AID <: AggregateId, A <: Aggregate[AID], E <: Event[AID]] extends EventStoreOptions[AID, A, E] {
+trait EventStoreAsync[AID <: AggregateId, A <: Aggregate[A, AID], E <: Event[AID]]
+    extends EventStoreOptions[AID, A, E] {
   override type This = EventStoreAsync[AID, A, E]
 
-  def getLatestSnapshotById(clazz: Class[A], id: AID)(implicit ec: ExecutionContext): Future[Option[(A, Long)]]
+  def getLatestSnapshotById(clazz: Class[A], id: AID)(implicit ec: ExecutionContext): Future[Option[A]]
 
   def getEventsByIdSinceSequenceNumber(clazz: Class[E], id: AID, sequenceNumber: Long)(implicit
       ec: ExecutionContext
