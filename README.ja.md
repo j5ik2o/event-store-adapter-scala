@@ -9,7 +9,7 @@
 
 [English](./README.md)
 
-## Installation
+## 導入方法
 
 以下を`build.sbt`に追加してください。
 
