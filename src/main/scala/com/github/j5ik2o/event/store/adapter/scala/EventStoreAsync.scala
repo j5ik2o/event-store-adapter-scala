@@ -53,48 +53,48 @@ object EventStoreAsync {
 
 }
 
-/** Represents a trait to store events asynchronously. / イベントを非同期に保存するためのトレイトを表します。
+/** Asynchronous version of [[EventStore]]. / [[EventStore]]の非同期版。
   *
   * @tparam AID
-  *   Aggregate ID type / 集約IDの型
+  *   [[AggregateId]] type / 集約IDの型
   * @tparam A
-  *   Aggregate type / 集約の型
+  *   [[Aggregate]] type / 集約の型
   * @tparam E
-  *   Event type / イベントの型
+  *   [[Event]] type / イベントの型
   */
 trait EventStoreAsync[AID <: AggregateId, A <: Aggregate[A, AID], E <: Event[AID]]
     extends EventStoreOptions[AID, A, E] {
   override type This = EventStoreAsync[AID, A, E]
 
-  /** Gets the latest snapshot by id. / IDによる最新のスナップショットを取得します。
+  /** Gets the latest snapshot by the aggregate id. / 集約IDによる最新のスナップショットを取得します。
     *
     * @param clazz
-    *   class of Aggregate A to be serialized / シリアライズ対象Aのクラス
+    *   class of Aggregate A to be deserialized / デシリアライズ対象の集約Aのクラス
     * @param id
     *   id of Aggregate A / 集約AのID
     * @return
-    *   `Future[Option[A]]`
+    *   [[Aggregate]] wrapped by [[Future]] / [[Future]]でラップされた[[Aggregate]]
     * @throws com.github.j5ik2o.event.store.adapter.java.EventStoreReadException
     *   if an error occurred during reading from the event store
-    * @throws com.github.j5ik2o.event.store.adapter.java.SerializationException
-    *   serialization failed
+    * @throws com.github.j5ik2o.event.store.adapter.java.DeserializationException
+    *   if an error occurred during deserialization / デシリアライズ中にエラーが発生した場合
     */
   def getLatestSnapshotById(clazz: Class[A], id: AID)(implicit ec: ExecutionContext): Future[Option[A]]
 
-  /** Gets the events by id and since the sequence number. / IDとシーケンス番号以降のイベントを取得します。
+  /** Gets the events by the aggregate id and since the sequence number. / 集約IDとシーケンス番号以降のイベントを取得します。
     *
     * @param clazz
-    *   class of Event E to be serialized / シリアライズ対象Eのクラス
+    *   class of Event E to be deserialized / デシリアライズ対象のイベントEのクラス
     * @param id
     *   id of Aggregate A / 集約AのID
     * @param sequenceNumber
     *   sequence number / シーケンス番号
     * @return
-    *   `Future[Seq[E]]`
+    *   [[Event]] Seq wrapped by [[Future]] / [[Future]]でラップされた[[Event]]のSeq
     * @throws com.github.j5ik2o.event.store.adapter.java.EventStoreReadException
     *   if an error occurred during reading from the event store
-    * @throws com.github.j5ik2o.event.store.adapter.java.SerializationException
-    *   serialization failed
+    * @throws com.github.j5ik2o.event.store.adapter.java.DeserializationException
+    *   if an error occurred during deserialization / デシリアライズ中にエラーが発生した場合
     */
   def getEventsByIdSinceSequenceNumber(clazz: Class[E], id: AID, sequenceNumber: Long)(implicit
       ec: ExecutionContext
@@ -105,15 +105,15 @@ trait EventStoreAsync[AID <: AggregateId, A <: Aggregate[A, AID], E <: Event[AID
     * @param event
     *   [[Event]] / イベント
     * @param version
-    *   / バージョン
+    *   version / バージョン
     * @return
-    *   `Future[Unit]`
+    *   [[Future]] without result / 結果を持たない[[Future]]
     * @throws com.github.j5ik2o.event.store.adapter.java.EventStoreWriteException
     *   if an error occurred during writing to the event store / イベントストアへの書き込み中にエラーが発生した場合
     * @throws com.github.j5ik2o.event.store.adapter.java.SerializationException
-    *   serialization failed / シリアライズに失敗した場合
+    *   if an error occurred during serialization / シリアライズ中にエラーが発生した場合
     * @throws com.github.j5ik2o.event.store.adapter.java.TransactionException
-    *   if transaction failed / トランザクションに失敗した場合
+    *   if an error occurred during transaction / トランザクション中にエラーが発生した場合
     */
   def persistEvent(event: E, version: Long)(implicit ec: ExecutionContext): Future[Unit]
 
@@ -124,13 +124,13 @@ trait EventStoreAsync[AID <: AggregateId, A <: Aggregate[A, AID], E <: Event[AID
     * @param snapshot
     *   [[Aggregate]] / スナップショット
     * @return
-    *   `Future[Unit]`
+    *   [[Future]] without result / 結果を持たない[[Future]]
     * @throws com.github.j5ik2o.event.store.adapter.java.EventStoreWriteException
     *   if an error occurred during writing to the event store / イベントストアへの書き込み中にエラーが発生した場合
     * @throws com.github.j5ik2o.event.store.adapter.java.SerializationException
-    *   serialization failed / シリアライズに失敗した場合
+    *   if an error occurred during serialization / シリアライズ中にエラーが発生した場合
     * @throws com.github.j5ik2o.event.store.adapter.java.TransactionException
-    *   if transaction failed / トランザクションに失敗した場合
+    *   if an error occurred during transaction / トランザクション中にエラーが発生した場合
     */
   def persistEventAndSnapshot(event: E, snapshot: A)(implicit ec: ExecutionContext): Future[Unit]
 

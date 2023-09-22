@@ -64,22 +64,22 @@ object EventStore {
 trait EventStore[AID <: AggregateId, A <: Aggregate[A, AID], E <: Event[AID]] extends EventStoreOptions[AID, A, E] {
   override type This = EventStore[AID, A, E]
 
-  /** Gets the latest snapshot by id. / IDによる最新のスナップショットを取得します。
+  /** Gets the latest snapshot by the aggregate id. / 集約IDによる最新のスナップショットを取得します。
     *
     * @param clazz
-    *   class of Aggregate A to be serialized / シリアライズ対象Aのクラス
+    *   class of Aggregate A to be serialized / シリアライズ対象の集約Aのクラス
     * @param id
     *   id of [[Aggregate]] A / 集約AのID
     * @return
     *   `Try[Option[A]]`
     * @throws com.github.j5ik2o.event.store.adapter.java.EventStoreReadException
-    *   if an error occurred during reading from the event store
-    * @throws com.github.j5ik2o.event.store.adapter.java.SerializationException
-    *   serialization failed
+    *   if an error occurred during reading from the event store / イベントストアからの読み込み中にエラーが発生した場合
+    * @throws com.github.j5ik2o.event.store.adapter.java.DeserializationException
+    *   if an error occurred during serialization / デシリアライズ中にエラーが発生した場合
     */
   def getLatestSnapshotById(clazz: Class[A], id: AID): Try[Option[A]]
 
-  /** Gets the events by id and since the sequence number. / IDとシーケンス番号以降のイベントを取得します。
+  /** Gets the events by the aggregate id and since the sequence number. / IDとシーケンス番号以降のイベントを取得します。
     *
     * @param clazz
     *   class of Event E to be serialized / シリアライズ対象Eのクラス
@@ -91,8 +91,8 @@ trait EventStore[AID <: AggregateId, A <: Aggregate[A, AID], E <: Event[AID]] ex
     *   `Try[Seq[E]]`
     * @throws com.github.j5ik2o.event.store.adapter.java.EventStoreReadException
     *   if an error occurred during reading from the event store
-    * @throws com.github.j5ik2o.event.store.adapter.java.SerializationException
-    *   serialization failed
+    * @throws com.github.j5ik2o.event.store.adapter.java.DeserializationException
+    *   if an error occurred during serialization / デシリアライズ中にエラーが発生した場合
     */
   def getEventsByIdSinceSequenceNumber(clazz: Class[E], id: AID, sequenceNumber: Long): Try[Seq[E]]
 
@@ -107,9 +107,9 @@ trait EventStore[AID <: AggregateId, A <: Aggregate[A, AID], E <: Event[AID]] ex
     * @throws com.github.j5ik2o.event.store.adapter.java.EventStoreWriteException
     *   if an error occurred during writing to the event store / イベントストアへの書き込み中にエラーが発生した場合
     * @throws com.github.j5ik2o.event.store.adapter.java.SerializationException
-    *   serialization failed / シリアライズに失敗した場合
+    *   if an error occurred during serialization / シリアライズ中にエラーが発生した場合
     * @throws com.github.j5ik2o.event.store.adapter.java.TransactionException
-    *   if transaction failed / トランザクションに失敗した場合
+    *   if an error occurred during transaction / トランザクション中にエラーが発生した場合
     */
   def persistEvent(event: E, version: Long): Try[Unit]
 
@@ -124,9 +124,9 @@ trait EventStore[AID <: AggregateId, A <: Aggregate[A, AID], E <: Event[AID]] ex
     * @throws com.github.j5ik2o.event.store.adapter.java.EventStoreWriteException
     *   if an error occurred during writing to the event store / イベントストアへの書き込み中にエラーが発生した場合
     * @throws com.github.j5ik2o.event.store.adapter.java.SerializationException
-    *   serialization failed / シリアライズに失敗した場合
+    *   if an error occurred during serialization / シリアライズ中にエラーが発生した場合
     * @throws com.github.j5ik2o.event.store.adapter.java.TransactionException
-    *   if transaction failed / トランザクションに失敗した場合
+    *   if an error occurred during transaction / トランザクション中にエラーが発生した場合
     */
   def persistEventAndSnapshot(event: E, snapshot: A): Try[Unit]
 }
