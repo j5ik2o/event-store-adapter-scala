@@ -72,7 +72,7 @@ class EventStoreAsyncForDynamoDBSpec
         snapshotAidIndexName,
         32
       )
-      "".reverse
+
       val id                 = UserAccountId(UUID.randomUUID().toString)
       val (aggregate, event) = UserAccount.create(id, "test-1")
 

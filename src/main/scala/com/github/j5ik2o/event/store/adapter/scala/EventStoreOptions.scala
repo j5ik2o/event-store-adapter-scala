@@ -28,12 +28,34 @@ trait EventStoreOptions[AID <: AggregateId, A <: Aggregate[A, AID], E <: Event[A
     * @param deleteTtl
     *   Time until it is deleted by TTL / TTLによって削除されるまでの時間
     * @return
+    *   [[This]]
     */
   def withDeleteTtl(deleteTtl: FiniteDuration): This
 
+  /** Specifies the key resolver. / キーリゾルバを指定します。
+    *
+    * @param keyResolver
+    *   [[KeyResolver]] instance / [[KeyResolver]]のインスタンス
+    * @return
+    *   [[This]]
+    */
   def withKeyResolver(keyResolver: KeyResolver[AID]): This
 
+  /** Specifies the event serializer. / イベントシリアライザを指定します。
+    *
+    * @param eventSerializer
+    *   [[EventSerializer]] instance / [[EventSerializer]]のインスタンス
+    * @return
+    *   [[This]]
+    */
   def withEventSerializer(eventSerializer: EventSerializer[AID, E]): This
 
+  /** Specifies the snapshot serializer. / スナップショットシリアライザを指定します。
+    *
+    * @param snapshotSerializer
+    *   [[SnapshotSerializer]] instance / [[SnapshotSerializer]]のインスタンス
+    * @return
+    *   [[This]]
+    */
   def withSnapshotSerializer(snapshotSerializer: SnapshotSerializer[AID, A]): This
 }
