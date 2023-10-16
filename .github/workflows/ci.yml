@@ -58,3 +58,9 @@ jobs:
           cache: 'sbt'
       - name: sbt test
         run: sbt -v ++${{ matrix.scala }} test
+  status-check:
+    runs-on: ubuntu-latest
+    needs: [test]
+    if: failure()
+    steps:
+      - run: exit 1
