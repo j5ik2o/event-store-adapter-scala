@@ -6,7 +6,7 @@
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![tokei](https://tokei.rs/b1/github/j5ik2o/event-store-adapter-scala)](https://github.com/XAMPPRocky/tokei)
 
-このライブラリ([j5ik2o/event-store-adapter-java](https://github.com/j5ik2o/event-store-adapter-java)のScalaラッパー)は、DynamoDBをEvent Sourcing用のEvent Storeにするためのものです。
+このライブラリ([j5ik2o/event-store-adapter-java](https://github.com/j5ik2o/event-store-adapter-java)のScalaラッパー)は、DynamoDBをCQRS/Event Sourcing用のEvent Storeにするためのものです。
 
 [English](./README.md)
 
