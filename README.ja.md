@@ -30,15 +30,15 @@ EventStoreを使えば、Event Sourcing対応リポジトリを簡単に実装�
 class UserAccountRepositoryAsync(
     eventStoreAsyncForDynamoDB: EventStoreAsyncForDynamoDB[UserAccountId, UserAccount, UserAccountEvent]
 ) {
-
+  // イベントを追記するだけならこちら。versionにはスナップショットテーブルの現在のversionを指定してください。
   def store(userAccountEvent: UserAccountEvent, version: Long)
     (implicit ec: ExecutionContext): Future[Unit] =
     eventStoreAsyncForDynamoDB.persistEvent(userAccountEvent, version)
-
+  // スナップショットとイベントを同時に書き込む場合はこちら。
   def store(userAccountEvent: UserAccountEvent, userAccount: UserAccount)
     (implicit ec: ExecutionContext): Future[Unit] =
     eventStoreAsyncForDynamoDB.persistEventAndSnapshot(userAccountEvent, userAccount)
-
+  // 最新のスナップショット+差分イベントを読み込み、最新の集約を取得します。
   def findById(id: UserAccountId)
     (implicit ec: ExecutionContext): Future[Option[UserAccount]] = {
     eventStoreAsyncForDynamoDB.getLatestSnapshotById(classOf[UserAccount], id).flatMap {
