@@ -59,7 +59,7 @@ class UserAccountRepositoryAsync(
 以下はリポジトリの使用例です。
 
 ```scala
-val eventStore = EventStoreAsyncForDynamoDB[UserAccountId, UserAccount, UserAccountEvent](
+val eventStore = EventStoreAsync.ofDynamoDB[UserAccountId, UserAccount, UserAccountEvent](
   dynamodbClient,
   journalTableName,
   snapshotTableName,
