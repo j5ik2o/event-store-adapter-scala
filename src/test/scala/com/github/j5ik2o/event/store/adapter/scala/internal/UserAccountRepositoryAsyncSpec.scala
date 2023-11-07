@@ -77,12 +77,18 @@ class UserAccountRepositoryAsyncSpec
       )
       val repository = new UserAccountRepositoryAsync(eventStore)
 
-      val id                 = UserAccountId(UUID.randomUUID().toString)
-      val (aggregate, event) = UserAccount.create(id, "test-1")
+      val id                  = UserAccountId(UUID.randomUUID().toString)
+      val name                = "test-1"
+      val (aggregate1, event) = UserAccount.create(id, name)
+      aggregate1.sequenceNumber shouldBe 1L
+      aggregate1.version shouldBe 1L
 
-      repository.store(event, aggregate).futureValue
-      repository.findById(id).futureValue.value shouldBe aggregate
+      repository.store(event, aggregate1).futureValue
+      val aggregate2 = repository.findById(id).futureValue.value
 
+      aggregate2 shouldBe aggregate1
+      aggregate2.sequenceNumber shouldBe 1L
+      aggregate2.version shouldBe 1L
     }
   }
 }

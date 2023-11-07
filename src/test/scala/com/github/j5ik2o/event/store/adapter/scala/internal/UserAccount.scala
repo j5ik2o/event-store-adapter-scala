@@ -42,9 +42,13 @@ final case class UserAccount private (
 object UserAccount {
 
   def create(id: UserAccountId, name: String): (UserAccount, UserAccountEvent) = {
-    val userAccount = UserAccount(id, 0L, name, 1L)
-    userAccount._sequenceNumber += 1
-    (userAccount, UserAccountEvent.Created(UUID.randomUUID().toString, id, 0L, name, Instant.now()))
+    val userAccount = UserAccount(id, 1L, name, 1L)
+    val userAccountCreated =
+      UserAccountEvent.Created(UUID.randomUUID().toString, id, userAccount._sequenceNumber, name, Instant.now())
+    (
+      userAccount,
+      userAccountCreated
+    )
   }
 
   def replay(events: Seq[UserAccountEvent], snapshot: UserAccount): UserAccount = {
