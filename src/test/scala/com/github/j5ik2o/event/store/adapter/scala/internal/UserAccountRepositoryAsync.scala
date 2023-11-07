@@ -18,8 +18,9 @@ class UserAccountRepositoryAsync(
     eventStoreAsyncForDynamoDB.getLatestSnapshotById(classOf[UserAccount], id).flatMap {
       case Some(userAccount) =>
         eventStoreAsyncForDynamoDB
-          .getEventsByIdSinceSequenceNumber(classOf[UserAccountEvent], id, userAccount.sequenceNumber).map { events =>
-            Some(UserAccount.replay(events, userAccount))
+          .getEventsByIdSinceSequenceNumber(classOf[UserAccountEvent], id, userAccount.sequenceNumber + 1).map {
+            events =>
+              Some(UserAccount.replay(events, userAccount))
           }
       case None =>
         Future.successful(None)

@@ -5,6 +5,7 @@
 .settings/
 target/
 project/target
+project/project/
 .cache
 .idea/
 .cache-main
@@ -30,3 +31,8 @@ dump.rdb
 dumps/
 .bsp/
 .bloop/
+.metals/
+.vscode/*
+!.vscode/settings.json
+
+project/metals.sbt
