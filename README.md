@@ -12,7 +12,7 @@ This library(Scala wrapper for [j5ik2o/event-store-adapter-java](https://github.
 
 ## Installation
 
-Add the following to your `build.sbt` (2.12.x, 2.13.x, 3.0.x):
+Add the following to your `build.sbt` (2.13.x, 3.0.x):
 
 ```scala
 val version = "..."
