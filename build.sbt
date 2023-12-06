@@ -20,7 +20,7 @@ def crossScalacOptions(scalaVersion: String): Seq[String] =
 
 lazy val baseSettings = Seq(
   organization := "com.github.j5ik2o",
-  homepage := Some(url("https://github.com/j5ik2o/akka-persistence-dynamodb")),
+  homepage := Some(url("https://github.com/j5ik2o/event-store-adapter-scala/")),
   licenses := List("Apache-2.0" -> url("https://www.apache.org/licenses/LICENSE-2.0")),
   developers := List(
     Developer(
@@ -32,8 +32,8 @@ lazy val baseSettings = Seq(
   ),
   scmInfo := Some(
     ScmInfo(
-      url("https://github.com/j5ik2o/akka-persistence-dynamodb"),
-      "scm:git@github.com:j5ik2o/akka-persistence-dynamodb.git"
+      url("https://github.com/j5ik2o/event-store-adapter-scala/"),
+      "scm:git@github.com:j5ik2o/event-store-adapter-scala.git"
     )
   ),
   scalaVersion := Versions.scala213Version,
