@@ -3,7 +3,7 @@ import sbt._
 object Dependencies {
 
   object Versions {
-    val scala213Version = "2.13.12"
+    val scala213Version = "2.13.13"
     val scala3Version   = "3.3.1"
 
     val logbackVersion  = "1.5.6"
