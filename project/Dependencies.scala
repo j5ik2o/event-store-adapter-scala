@@ -8,7 +8,7 @@ object Dependencies {
 
     val logbackVersion  = "1.5.11"
     val slf4jVersion    = "1.7.36"
-    val awsSdkV2Version = "2.28.24"
+    val awsSdkV2Version = "2.28.25"
 
     val scalaTest32Version = "3.2.19"
 
