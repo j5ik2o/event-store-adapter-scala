@@ -1,7 +1,7 @@
 package com.github.j5ik2o.event.store.adapter.scala.internal
 
-import com.github.j5ik2o.dockerController.localstack.{ LocalStackController, Service }
-import com.github.j5ik2o.dockerController.{ DockerController, DockerControllerSpecSupport, WaitPredicates }
+import com.github.j5ik2o.dockerController.localstack.{LocalStackController, Service}
+import com.github.j5ik2o.dockerController.{DockerController, DockerControllerSpecSupport, WaitPredicates}
 import com.github.j5ik2o.event.store.adapter.scala.EventStoreAsync
 import org.scalatest.OptionValues
 import org.scalatest.concurrent.ScalaFutures
@@ -16,21 +16,21 @@ import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 
 class UserAccountRepositoryAsyncSpec
-    extends AnyFreeSpec
-    with DockerControllerSpecSupport
-    with Matchers
-    with OptionValues
-    with ScalaFutures {
+  extends AnyFreeSpec
+  with DockerControllerSpecSupport
+  with Matchers
+  with OptionValues
+  with ScalaFutures {
 
-  val accessKeyId: String         = "AKIAIOSFODNN7EXAMPLE"
-  val secretAccessKey: String     = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
-  val hostPort: Int               = temporaryServerPort()
+  val accessKeyId: String = "AKIAIOSFODNN7EXAMPLE"
+  val secretAccessKey: String = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+  val hostPort: Int = temporaryServerPort()
   val endpointForDynamoDB: String = s"http://$dockerHost:$hostPort"
-  val region: Region              = Region.AP_NORTHEAST_1
+  val region: Region = Region.AP_NORTHEAST_1
 
-  val journalTableName     = "journal"
-  val snapshotTableName    = "snapshot"
-  val journalAidIndexName  = "journal-aid-index"
+  val journalTableName = "journal"
+  val snapshotTableName = "snapshot"
+  val journalAidIndexName = "journal-aid-index"
   val snapshotAidIndexName = "snapshot-aid-index"
 
   val controller: LocalStackController =
@@ -38,7 +38,7 @@ class UserAccountRepositoryAsyncSpec
       services = Set(Service.DynamoDB),
       edgeHostPort = hostPort,
       hostNameExternal = Some(dockerHost),
-      defaultRegion = Some(region.toString)
+      defaultRegion = Some(region.toString),
     )
 
   val testTimeFactor: Float = sys.env.getOrElse("TEST_TIME_FACTOR", "1").toFloat
@@ -51,7 +51,7 @@ class UserAccountRepositoryAsyncSpec
 
   override protected val waitPredicatesSettings: Map[DockerController, WaitPredicateSetting] =
     Map(
-      controller -> WaitPredicateSetting(Duration.Inf, WaitPredicates.forLogMessageExactly("Ready."))
+      controller -> WaitPredicateSetting(Duration.Inf, WaitPredicates.forLogMessageExactly("Ready.")),
     )
 
   val dynamodbAsyncClient: DynamoDbAsyncClient =
@@ -73,12 +73,12 @@ class UserAccountRepositoryAsyncSpec
         snapshotTableName,
         journalAidIndexName,
         snapshotAidIndexName,
-        32
+        32,
       )
       val repository = new UserAccountRepositoryAsync(eventStore)
 
-      val id                  = UserAccountId(UUID.randomUUID().toString)
-      val name                = "test-1"
+      val id = UserAccountId(UUID.randomUUID().toString)
+      val name = "test-1"
       val (aggregate1, event) = UserAccount.create(id, name)
       aggregate1.sequenceNumber shouldBe 1L
       aggregate1.version shouldBe 1L
