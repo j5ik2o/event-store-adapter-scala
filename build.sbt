@@ -82,21 +82,6 @@ ThisBuild / resolvers ++= Resolver.sonatypeOssRepos("staging")
 ThisBuild / resolvers ++= Resolver.sonatypeOssRepos("releases")
 ThisBuild / resolvers += "Seasar Repository" at "https://maven.seasar.org/maven2/"
 
-def versionFromFile: String = {
-  var source: scala.io.Source = null
-  try {
-    source = scala.io.Source.fromFile("version")
-    val version = source.mkString.trim
-    println(s"version = $version")
-    version
-  } finally {
-    if (source != null)
-      source.close()
-  }
-}
-
-ThisBuild / version := versionFromFile
-
 lazy val root = (project in file("."))
   .settings(
     name := "event-store-adapter-scala",
