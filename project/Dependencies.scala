@@ -3,8 +3,8 @@ import sbt._
 object Dependencies {
 
   object Versions {
-    val scala213Version = "2.13.13"
-    val scala3Version   = "3.3.1"
+    val scala213Version = "2.13.16"
+    val scala3Version   = "3.6.4"
 
     val logbackVersion  = "1.5.18"
     val slf4jVersion    = "1.7.36"
@@ -23,7 +23,7 @@ object Dependencies {
   object j5ik2o {
     val dockerController_ScalaTest  = "com.github.j5ik2o" %% "docker-controller-scala-scalatest"  % "1.15.34"
     val dockerController_LocalStack = "com.github.j5ik2o" %% "docker-controller-scala-localstack" % "1.15.34"
-    val eventStoreAdapterJava       = "com.github.j5ik2o"  % "event-store-adapter-java"           % "1.1.174"
+    val eventStoreAdapterJava       = "io.github.j5ik2o"   % "event-store-adapter-java"           % "1.1.372"
   }
 
   object softwareamazon {
