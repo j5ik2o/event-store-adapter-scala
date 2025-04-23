@@ -7,10 +7,10 @@ import java.time.Instant
 import java.util.UUID
 
 final case class UserAccount private (
-    @JsonProperty("id") id: UserAccountId,
-    @JsonProperty("sequenceNumber") private var _sequenceNumber: Long,
-    @JsonProperty("name") name: String,
-    @JsonProperty("version") private var _version: Long
+  @JsonProperty("id") id: UserAccountId,
+  @JsonProperty("sequenceNumber") private var _sequenceNumber: Long,
+  @JsonProperty("name") name: String,
+  @JsonProperty("version") private var _version: Long,
 ) extends Aggregate[UserAccount, UserAccountId] {
 
   override def getId: UserAccountId = id
@@ -20,15 +20,14 @@ final case class UserAccount private (
   override def getVersion: Long = version
 
   def sequenceNumber: Long = _sequenceNumber
-  def version: Long        = _version
+  def version: Long = _version
 
-  def applyEvent(event: UserAccountEvent): UserAccount = {
+  def applyEvent(event: UserAccountEvent): UserAccount =
     event match {
       case UserAccountEvent.Renamed(_, _, _, name, _) =>
         changeName(name)._1
       case _ => this
     }
-  }
 
   def changeName(name: String): (UserAccount, UserAccountEvent.Renamed) = {
     val updated = copy(name = name)
@@ -47,14 +46,13 @@ object UserAccount {
       UserAccountEvent.Created(UUID.randomUUID().toString, id, userAccount._sequenceNumber, name, Instant.now())
     (
       userAccount,
-      userAccountCreated
+      userAccountCreated,
     )
   }
 
-  def replay(events: Seq[UserAccountEvent], snapshot: UserAccount): UserAccount = {
+  def replay(events: Seq[UserAccountEvent], snapshot: UserAccount): UserAccount =
     events.foldLeft(snapshot) { (acc, event) =>
       acc.applyEvent(event)
     }
-  }
 
 }

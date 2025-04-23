@@ -1,4 +1,4 @@
-import Dependencies.{ fasterxml, j5ik2o, logback, scalatest, Versions }
+import Dependencies.{fasterxml, j5ik2o, logback, scalatest, Versions}
 import Dependencies.Versions._
 
 ThisBuild / organization := "io.github.j5ik2o"
@@ -10,26 +10,26 @@ ThisBuild / developers := List(
     id = "j5ik2o",
     name = "Junichi Kato",
     email = "j5ik2o@gmail.com",
-    url = url("https://blog.j5ik2o.me")
-  )
+    url = url("https://blog.j5ik2o.me"),
+  ),
 )
 ThisBuild / scmInfo := Some(
   ScmInfo(
     url("https://github.com/j5ik2o/event-store-adapter-scala"),
-    "scm:git@github.com:j5ik2o/event-store-adapter-scala.git"
-  )
+    "scm:git@github.com:j5ik2o/event-store-adapter-scala.git",
+  ),
 )
 ThisBuild / scalaVersion := Versions.scala213Version
 ThisBuild / crossScalaVersions := Seq(
   Versions.scala213Version,
-  Versions.scala3Version
+  Versions.scala3Version,
 )
 val commonFlags = Seq(
   "-feature",
   "-deprecation",
   "-unchecked",
   "-encoding",
-  "UTF-8"
+  "UTF-8",
 )
 def extraFlags(scalaVer: String): Seq[String] =
   CrossVersion.partialVersion(scalaVer) match {
@@ -38,7 +38,7 @@ def extraFlags(scalaVer: String): Seq[String] =
         "-source:3.0-migration",
         "-Xignore-scala2-macros",
         "-Xtarget:8",
-        "-Wunused:all"
+        "-Wunused:all",
       )
     case Some((2, _)) =>
       Seq(
@@ -46,14 +46,14 @@ def extraFlags(scalaVer: String): Seq[String] =
         "-Ydelambdafy:method",
         "-target:jvm-1.8",
         "-Yrangepos",
-        "-Ywarn-unused"
+        "-Ywarn-unused",
       )
     case _ => Nil
   }
 ThisBuild / scalacOptions ++= commonFlags ++ extraFlags(scalaVersion.value)
 ThisBuild / resolvers ++= Seq(
   "Seasar Repository" at "https://maven.seasar.org/maven2/",
-  "DynamoDB Local Repository" at "https://s3-us-west-2.amazonaws.com/dynamodb-local/release"
+  "DynamoDB Local Repository" at "https://s3-us-west-2.amazonaws.com/dynamodb-local/release",
 )
 ThisBuild / semanticdbEnabled := true
 ThisBuild / semanticdbVersion := scalafixSemanticdb.revision
@@ -69,8 +69,8 @@ ThisBuild / Compile / doc / sources := {
   }
 }
 ThisBuild / envVars := Map(
-  "AWS_REGION"                                   -> "ap-northeast-1",
-  "AWS_JAVA_V1_DISABLE_DEPRECATION_ANNOUNCEMENT" -> "true"
+  "AWS_REGION" -> "ap-northeast-1",
+  "AWS_JAVA_V1_DISABLE_DEPRECATION_ANNOUNCEMENT" -> "true",
 )
 ThisBuild / scalaBinaryVersion := CrossVersion.binaryScalaVersion(scalaVersion.value)
 ThisBuild / dynverSonatypeSnapshots := true
@@ -86,13 +86,13 @@ lazy val root = (project in file("."))
   .settings(
     name := "event-store-adapter-scala",
     libraryDependencies ++= Seq(
-      scalatest.scalatest                % Test,
-      logback.classic                    % Test,
-      j5ik2o.dockerController_ScalaTest  % Test,
+      scalatest.scalatest % Test,
+      logback.classic % Test,
+      j5ik2o.dockerController_ScalaTest % Test,
       j5ik2o.dockerController_LocalStack % Test,
       j5ik2o.eventStoreAdapterJava,
-      fasterxml.jacksonModuleScala
-    )
+      fasterxml.jacksonModuleScala,
+    ),
   )
 
 // --- Custom commands

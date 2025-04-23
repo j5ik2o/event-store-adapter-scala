@@ -6,10 +6,10 @@ import com.github.j5ik2o.event.store.adapter.java.{
   Event,
   EventSerializer,
   KeyResolver,
-  SnapshotSerializer
+  SnapshotSerializer,
 }
 import com.github.j5ik2o.event.store.adapter.scala.EventStore
-import com.github.j5ik2o.event.store.adapter.java.internal.{ EventStoreForDynamoDB => JavaEventStoreForDynamoDB }
+import com.github.j5ik2o.event.store.adapter.java.internal.{EventStoreForDynamoDB => JavaEventStoreForDynamoDB}
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient
 
 import scala.concurrent.duration.FiniteDuration
@@ -21,17 +21,17 @@ import scala.util.Try
 private[scala] object EventStoreForDynamoDB {
 
   def create[AID <: AggregateId, A <: Aggregate[A, AID], E <: Event[AID]](
-      javaEventStore: JavaEventStoreForDynamoDB[AID, A, E]
+    javaEventStore: JavaEventStoreForDynamoDB[AID, A, E],
   ): EventStoreForDynamoDB[AID, A, E] = new EventStoreForDynamoDB(javaEventStore)
 
   def create[AID <: AggregateId, A <: Aggregate[A, AID], E <: Event[AID]](
-      dynamoDbClient: DynamoDbClient,
-      journalTableName: String,
-      snapshotTableName: String,
-      journalAidIndexName: String,
-      snapshotAidIndexName: String,
-      shardCount: Long
-  ): EventStoreForDynamoDB[AID, A, E] = {
+    dynamoDbClient: DynamoDbClient,
+    journalTableName: String,
+    snapshotTableName: String,
+    journalAidIndexName: String,
+    snapshotAidIndexName: String,
+    shardCount: Long,
+  ): EventStoreForDynamoDB[AID, A, E] =
     create(
       JavaEventStoreForDynamoDB.create[AID, A, E](
         dynamoDbClient,
@@ -39,14 +39,13 @@ private[scala] object EventStoreForDynamoDB {
         snapshotTableName,
         journalAidIndexName,
         snapshotAidIndexName,
-        shardCount
-      )
+        shardCount,
+      ),
     )
-  }
 }
 
 final class EventStoreForDynamoDB[AID <: AggregateId, A <: Aggregate[A, AID], E <: Event[AID]] private (
-    underlying: JavaEventStoreForDynamoDB[AID, A, E]
+  underlying: JavaEventStoreForDynamoDB[AID, A, E],
 ) extends EventStore[AID, A, E] {
 
   override def withKeepSnapshotCount(keepSnapshotCount: Int): EventStoreForDynamoDB[AID, A, E] = {
@@ -76,7 +75,8 @@ final class EventStoreForDynamoDB[AID <: AggregateId, A <: Aggregate[A, AID], E 
 
   override def getLatestSnapshotById(clazz: Class[A], id: AID): Try[Option[A]] = Try {
     underlying
-      .getLatestSnapshotById(clazz, id).toScala
+      .getLatestSnapshotById(clazz, id)
+      .toScala
   }
 
   override def getEventsByIdSinceSequenceNumber(clazz: Class[E], id: AID, sequenceNumber: Long): Try[Seq[E]] = Try {
