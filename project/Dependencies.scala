@@ -23,7 +23,7 @@ object Dependencies {
   object j5ik2o {
     val dockerController_ScalaTest = "com.github.j5ik2o" %% "docker-controller-scala-scalatest" % "1.15.34"
     val dockerController_LocalStack = "com.github.j5ik2o" %% "docker-controller-scala-localstack" % "1.15.34"
-    val eventStoreAdapterJava = "io.github.j5ik2o" % "event-store-adapter-java" % "1.2.51"
+    val eventStoreAdapterJava = "io.github.j5ik2o" % "event-store-adapter-java" % "1.2.52"
   }
 
   object softwareamazon {
