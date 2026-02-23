@@ -17,7 +17,7 @@ object Dependencies {
   import Versions._
 
   object fasterxml {
-    val jacksonModuleScala = "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.21.0"
+    val jacksonModuleScala = "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.21.1"
   }
 
   object j5ik2o {
