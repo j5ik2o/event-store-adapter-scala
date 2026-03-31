@@ -10,7 +10,7 @@ object Dependencies {
     val slf4jVersion = "1.7.36"
     val awsSdkV2Version = "2.42.24"
 
-    val scalaTest32Version = "3.2.19"
+    val scalaTest32Version = "3.2.20"
 
   }
 
