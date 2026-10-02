@@ -17,6 +17,12 @@
       "managers": ["sbt"],
       "packageNames": ["sbt-ci-release"],
       "enabled": false
+    },
+    {
+      "description": "sbt 2.x requires JDK 17 or above, but CI lint runs on JDK 11 and fails before loading the build. Block sbt major updates until sbt 2 support for the plugins and migration of the build definitions and build JDK are completed together.",
+      "matchPackageNames": ["sbt/sbt", "org.scala-sbt:sbt"],
+      "matchUpdateTypes": ["major"],
+      "enabled": false
     }
   ],
   "prHourlyLimit": 0,
