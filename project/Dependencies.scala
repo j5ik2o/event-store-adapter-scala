@@ -33,7 +33,7 @@ object Dependencies {
   object dockerJava {
     // HttpClient 5.4+ requires the updated Unix socket connection operator.
     val httpclient5Transport =
-      ("com.github.docker-java" % "docker-java-transport-httpclient5" % "3.5.0")
+      ("com.github.docker-java" % "docker-java-transport-httpclient5" % "3.7.1")
         // Keep the existing JNA dependency supplied by docker-java-transport-okhttp.
         .exclude("net.java.dev.jna", "jna")
   }
