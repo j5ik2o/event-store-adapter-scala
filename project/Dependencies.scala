@@ -21,9 +21,21 @@ object Dependencies {
   }
 
   object j5ik2o {
-    val dockerController_ScalaTest = "com.github.j5ik2o" %% "docker-controller-scala-scalatest" % "1.15.34"
-    val dockerController_LocalStack = "com.github.j5ik2o" %% "docker-controller-scala-localstack" % "1.15.34"
+    val dockerController_ScalaTest =
+      ("com.github.j5ik2o" %% "docker-controller-scala-scalatest" % "1.15.34")
+        .exclude("com.github.docker-java", "docker-java-transport-httpclient5")
+    val dockerController_LocalStack =
+      ("com.github.j5ik2o" %% "docker-controller-scala-localstack" % "1.15.34")
+        .exclude("com.github.docker-java", "docker-java-transport-httpclient5")
     val eventStoreAdapterJava = "io.github.j5ik2o" % "event-store-adapter-java" % "1.2.88"
+  }
+
+  object dockerJava {
+    // HttpClient 5.4+ requires the updated Unix socket connection operator.
+    val httpclient5Transport =
+      ("com.github.docker-java" % "docker-java-transport-httpclient5" % "3.5.0")
+        // Keep the existing JNA dependency supplied by docker-java-transport-okhttp.
+        .exclude("net.java.dev.jna", "jna")
   }
 
   object softwareamazon {
