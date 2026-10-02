@@ -61,6 +61,7 @@ jobs:
   ci-success:
     name: CI Success
     runs-on: ubuntu-latest
+    timeout-minutes: 2
     needs: [lint, test]
     if: always()
     steps:
