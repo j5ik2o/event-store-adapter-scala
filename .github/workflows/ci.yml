@@ -31,6 +31,7 @@ env:
 jobs:
   lint:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
@@ -49,6 +50,7 @@ jobs:
         jdk: [ 11, 17, 19 ]
         scala: [ 2.13.18, 3.6.4 ]
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     needs: lint
     env:
       TEST_TIME_FACTOR: 3
