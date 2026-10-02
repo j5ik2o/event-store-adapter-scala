@@ -14,13 +14,6 @@ on:
   pull_request:
     branches:
       - main
-    paths:
-      - '**.scala'
-      - '**.java'
-      - '**.sbt'
-      - '.scalafmt.conf'
-      - 'project/build.properties'
-      - '.github/workflows/ci.yml'
   schedule:
     - cron: '0 * * * *'
 env:
@@ -65,3 +58,18 @@ jobs:
       - uses: sbt/setup-sbt@v1
       - name: sbt test
         run: sbt -v ++${{ matrix.scala }} test
+  ci-success:
+    name: CI Success
+    runs-on: ubuntu-latest
+    needs: [lint, test]
+    if: always()
+    steps:
+      - name: Check CI results
+        env:
+          LINT_RESULT: ${{ needs.lint.result }}
+          TEST_RESULT: ${{ needs.test.result }}
+        run: |
+          if [[ "$LINT_RESULT" != "success" || "$TEST_RESULT" != "success" ]]; then
+            echo "CI did not succeed: lint=$LINT_RESULT, test=$TEST_RESULT"
+            exit 1
+          fi
