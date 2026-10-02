@@ -1,4 +1,4 @@
-import Dependencies.{fasterxml, j5ik2o, logback, scalatest, Versions}
+import Dependencies.{dockerJava, fasterxml, j5ik2o, logback, scalatest, Versions}
 import Dependencies.Versions._
 
 ThisBuild / organization := "io.github.j5ik2o"
@@ -90,6 +90,7 @@ lazy val root = (project in file("."))
       logback.classic % Test,
       j5ik2o.dockerController_ScalaTest % Test,
       j5ik2o.dockerController_LocalStack % Test,
+      dockerJava.httpclient5Transport % Test,
       j5ik2o.eventStoreAdapterJava,
       fasterxml.jacksonModuleScala,
     ),
