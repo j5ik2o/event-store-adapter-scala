@@ -52,7 +52,6 @@ def extraFlags(scalaVer: String): Seq[String] =
   }
 ThisBuild / scalacOptions ++= commonFlags ++ extraFlags(scalaVersion.value)
 ThisBuild / resolvers ++= Seq(
-  "Seasar Repository" at "https://maven.seasar.org/maven2/",
   "DynamoDB Local Repository" at "https://s3-us-west-2.amazonaws.com/dynamodb-local/release",
 )
 ThisBuild / semanticdbEnabled := true
@@ -80,7 +79,6 @@ ThisBuild / pomIncludeRepository := (_ => false)
 ThisBuild / credentials += Credentials(Path.userHome / ".sbt" / "1.0" / "sonatype_credentials")
 ThisBuild / resolvers ++= Resolver.sonatypeOssRepos("staging")
 ThisBuild / resolvers ++= Resolver.sonatypeOssRepos("releases")
-ThisBuild / resolvers += "Seasar Repository" at "https://maven.seasar.org/maven2/"
 
 lazy val root = (project in file("."))
   .settings(
@@ -88,8 +86,8 @@ lazy val root = (project in file("."))
     libraryDependencies ++= Seq(
       scalatest.scalatest % Test,
       logback.classic % Test,
-      j5ik2o.dockerController_ScalaTest % Test,
-      j5ik2o.dockerController_LocalStack % Test,
+      (j5ik2o.dockerController_ScalaTest % Test).exclude("org.seasar.util", "s2util"),
+      (j5ik2o.dockerController_LocalStack % Test).exclude("org.seasar.util", "s2util"),
       j5ik2o.eventStoreAdapterJava,
       fasterxml.jacksonModuleScala,
     ),
