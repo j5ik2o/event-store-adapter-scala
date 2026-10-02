@@ -14,11 +14,6 @@
       "automerge": true
     },
     {
-      "managers": ["sbt"],
-      "packageNames": ["sbt-ci-release"],
-      "enabled": false
-    },
-    {
       "description": "Block sbt major updates until sbt 2 migration is completed, including verifying plugin compatibility, updating build definitions, and deciding how to run the JDK 11/17/19 test matrix with sbt 2.",
       "matchPackageNames": ["sbt/sbt", "org.scala-sbt:sbt"],
       "matchUpdateTypes": ["major"],
