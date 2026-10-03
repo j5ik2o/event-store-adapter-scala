@@ -26,34 +26,16 @@ jobs:
             LATEST_TAG=$(git describe --abbrev=0 --tags)
             echo "latest-tag = $LATEST_TAG"
             # 最新タグから現在までの変更をカウント
-            COUNT=$(git log $LATEST_TAG..HEAD --pretty=format:"%s" --no-merges \
-              --grep='^build:' \
-              --grep='^ci:' \
-              --grep='^feat:' \
-              --grep='^fix:' \
-              --grep='^docs:' \
-              --grep='^style:' \
-              --grep='^refactor:' \
-              --grep='^perf:' \
-              --grep='^test:' \
-              --grep='^revert:' \
-              --grep='^chore:' | awk 'END{print NR}')
+            COUNT=$(git log $LATEST_TAG..HEAD --pretty=format:"%s" --no-merges -P \
+              --grep='^(BREAKING CHANGE|build|ci|feat|fix|docs|style|refactor|perf|test|revert|chore)(\(.*\))?:' \
+              | awk 'END{print NR}')
           else
             echo "No tags found - using initial commit as base"
             # 初期コミットから現在までの変更をカウント（初回実行時）
             FIRST_COMMIT=$(git rev-list --max-parents=0 HEAD)
-            COUNT=$(git log $FIRST_COMMIT..HEAD --pretty=format:"%s" --no-merges \
-              --grep='^build:' \
-              --grep='^ci:' \
-              --grep='^feat:' \
-              --grep='^fix:' \
-              --grep='^docs:' \
-              --grep='^style:' \
-              --grep='^refactor:' \
-              --grep='^perf:' \
-              --grep='^test:' \
-              --grep='^revert:' \
-              --grep='^chore:' | awk 'END{print NR}')
+            COUNT=$(git log $FIRST_COMMIT..HEAD --pretty=format:"%s" --no-merges -P \
+              --grep='^(BREAKING CHANGE|build|ci|feat|fix|docs|style|refactor|perf|test|revert|chore)(\(.*\))?:' \
+              | awk 'END{print NR}')
             # 初回は必ず1以上にしてタグ付けができるようにする
             if [ "$COUNT" -eq "0" ]; then
               COUNT=1
