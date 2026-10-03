@@ -2,7 +2,6 @@ name: publish
 on:
   push:
     tags: [ 'v*' ]
-    branches: [ main ]
 jobs:
   publish:
     runs-on: ubuntu-latest
@@ -47,9 +46,3 @@ jobs:
             -F bundle=@"$ZIP_FILE" \
             -w "\nHTTP %{http_code}\n" \
             "https://central.sonatype.com/api/v1/publisher/upload?publishingType=AUTOMATIC"
-      - name: Publish Snapshot JAR
-        if: github.ref == 'refs/heads/main'
-        run: |
-          sbt \
-            'set every publishTo := Some("central-snapshots" at "https://central.sonatype.com/repository/maven-snapshots/")' \
-            +publishSigned
