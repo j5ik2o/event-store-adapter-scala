@@ -12,7 +12,9 @@ concurrency:
 jobs:
   snapshot:
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event != 'pull_request' && github.event.workflow_run.head_sha == github.sha }}
+    permissions:
+      contents: read
+    if: ${{ github.event.workflow_run.conclusion == 'success' && contains(fromJSON('["push","schedule"]'), github.event.workflow_run.event) && github.event.workflow_run.head_sha == github.sha }}
     env:
       SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
       SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
@@ -48,7 +50,7 @@ jobs:
             echo "::notice::Skipping Snapshot publish because main has advanced."
             exit 0
           fi
-          if git describe --exact-match --tags HEAD >/dev/null 2>&1; then
+          if git describe --exact-match --tags --match 'v[0-9]*' HEAD >/dev/null 2>&1; then
             echo "::notice::Skipping Snapshot publish because HEAD is a release tag."
             exit 0
           fi
