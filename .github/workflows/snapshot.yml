@@ -48,6 +48,10 @@ jobs:
             echo "::notice::Skipping Snapshot publish because main has advanced."
             exit 0
           fi
+          if git describe --exact-match --tags HEAD >/dev/null 2>&1; then
+            echo "::notice::Skipping Snapshot publish because HEAD is a release tag."
+            exit 0
+          fi
           sbt \
             'set every publishTo := Some("central-snapshots" at "https://central.sonatype.com/repository/maven-snapshots/")' \
             +publishSigned
