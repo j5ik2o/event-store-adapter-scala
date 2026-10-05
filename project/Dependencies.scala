@@ -27,7 +27,7 @@ object Dependencies {
     val dockerController_LocalStack =
       ("com.github.j5ik2o" %% "docker-controller-scala-localstack" % "1.15.34")
         .exclude("com.github.docker-java", "docker-java-transport-httpclient5")
-    val eventStoreAdapterJava = "io.github.j5ik2o" % "event-store-adapter-java" % "1.2.90"
+    val eventStoreAdapterJava = "io.github.j5ik2o" % "event-store-adapter-java" % "1.2.91"
   }
 
   object dockerJava {
