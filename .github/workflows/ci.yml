@@ -11,6 +11,8 @@ on:
       - '.scalafmt.conf'
       - 'project/build.properties'
       - '.github/workflows/ci.yml'
+      - '.github/workflows/bump-version.yml'
+      - '.github/tests/**'
   pull_request:
     branches:
       - main
@@ -22,6 +24,17 @@ env:
   AWS_JAVA_V1_DISABLE_DEPRECATION_ANNOUNCEMENT: true
   AWS_REGION: ap-northeast-1
 jobs:
+  release-workflow:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - name: Test version bump selection
+        run: python3 -m unittest discover -s .github/tests -v
+      - name: Lint workflows
+        uses: docker://rhysd/actionlint:1.7.12
+        with:
+          args: -shellcheck=
   lint:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -62,15 +75,16 @@ jobs:
     name: CI Success
     runs-on: ubuntu-latest
     timeout-minutes: 2
-    needs: [lint, test]
+    needs: [lint, test, release-workflow]
     if: always()
     steps:
       - name: Check CI results
         env:
           LINT_RESULT: ${{ needs.lint.result }}
           TEST_RESULT: ${{ needs.test.result }}
+          RELEASE_WORKFLOW_RESULT: ${{ needs.release-workflow.result }}
         run: |
-          if [[ "$LINT_RESULT" != "success" || "$TEST_RESULT" != "success" ]]; then
-            echo "CI did not succeed: lint=$LINT_RESULT, test=$TEST_RESULT"
+          if [[ "$LINT_RESULT" != "success" || "$TEST_RESULT" != "success" || "$RELEASE_WORKFLOW_RESULT" != "success" ]]; then
+            echo "CI did not succeed: lint=$LINT_RESULT, test=$TEST_RESULT, release-workflow=$RELEASE_WORKFLOW_RESULT"
             exit 1
           fi
