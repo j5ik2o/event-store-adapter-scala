@@ -1,91 +1,149 @@
 # event-store-adapter-scala
 
 [![CI](https://github.com/j5ik2o/event-store-adapter-scala/actions/workflows/ci.yml/badge.svg)](https://github.com/j5ik2o/event-store-adapter-scala/actions/workflows/ci.yml)
-[![Maven Central](https://maven-badges.herokuapp.com/maven-central/com.github.j5ik2o/event-store-adapter-scala_2.13/badge.svg)](https://maven-badges.herokuapp.com/maven-central/com.github.j5ik2o/event-store-adapter-scala_2.13)
-[![Renovate](https://img.shields.io/badge/renovate-enabled-brightgreen.svg)](https://renovatebot.com)
+[![Maven Central](https://maven-badges.herokuapp.com/maven-central/io.github.j5ik2o/event-store-adapter-scala_2.13/badge.svg)](https://maven-badges.herokuapp.com/maven-central/io.github.j5ik2o/event-store-adapter-scala_2.13)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![](https://tokei.rs/b1/github/j5ik2o/event-store-adapter-scala)](https://github.com/XAMPPRocky/tokei)
 
-This library(Scala wrapper for [j5ik2o/event-store-adapter-java](https://github.com/j5ik2o/event-store-adapter-java)) is designed to turn DynamoDB into an Event Store for CQRS/Event Sourcing.
+Scala wrappers for the Java Memory and DynamoDB event stores. Synchronous factories and operations return `Try`; asynchronous factories and operations return `Future`. Domain payloads only need to be serializable; they implement no library trait.
 
-[日本語](./README.ja.md)
+[日本語](README.ja.md)
 
-## Installation
+## Dependency
 
-Add the following to your `build.sbt` (2.13.x, 3.0.x):
+The source is cross-built for Scala 2.13.18 and 3.6.4 and depends on `io.github.j5ik2o:event-store-adapter-java:2.0.0-SNAPSHOT`. Use a Scala Snapshot built from this source. Its version is produced by the existing sbt-dynver configuration; this change does not publish a release or select a new Scala version number. Older Scala artifacts expose the previous API.
 
 ```scala
-val version = "..."
-
-libraryDependencies += Seq(
-  "com.github.j5ik2o" %% "event-store-adapter-scala" % version,
-)
+val scalaAdapterVersion = "<Snapshot version built from this source>"
+resolvers += "Sonatype Snapshots" at "https://central.sonatype.com/repository/maven-snapshots/"
+libraryDependencies += "io.github.j5ik2o" %% "event-store-adapter-scala" % scalaAdapterVersion
 ```
 
-## Usage
+Java's `core` identifiers, envelopes, typed `PayloadSerializer<T>`, `EventStoreConfig`, `RetentionPolicy` and five exception classes are reused. Bind event and aggregate-state serializers at creation; reads take no `Class`. Serializers process payloads only, separately from envelope metadata.
 
-You can easily implement an Event Sourcing-enabled repository using EventStore.
+## Save and restore
+
+This complete helper uses names as event payloads and aggregate state. It is compiled and executed by [AccountExampleSpec](src/test/scala/com/github/j5ik2o/event/store/adapter/scala/examples/AccountExampleSpec.scala) with both stores and both public factory forms. For arbitrary Scala case classes and dedicated serializers, see the [UserAccount example](src/test/scala/com/github/j5ik2o/event/store/adapter/scala/internal/UserAccount.scala).
 
 ```scala
-class UserAccountRepositoryAsync(
-    eventStoreAsync: EventStoreAsync[UserAccountId, UserAccount, UserAccountEvent]
-) {
+import com.github.j5ik2o.event.store.adapter.java.core.{AggregateId, EventEnvelope, EventStoreConfig, JsonPayloadSerializer, SnapshotEnvelope}
+import com.github.j5ik2o.event.store.adapter.scala.{EventStore, EventStoreAsync}
 
-  def store(userAccountEvent: UserAccountEvent, version: Long)
-    (implicit ec: ExecutionContext): Future[Unit] =
-    eventStoreAsync.persistEvent(userAccountEvent, version)
+import java.time.Instant
+import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Success, Try}
 
-  def store(userAccountEvent: UserAccountEvent, userAccount: UserAccount)
-    (implicit ec: ExecutionContext): Future[Unit] =
-    eventStoreAsync.persistEventAndSnapshot(userAccountEvent, userAccount)
+object AccountExample {
+  val config: EventStoreConfig[String, String] = EventStoreConfig
+    .builder[String, String]()
+    .payloadSerializer(JsonPayloadSerializer.of(classOf[String]))
+    .snapshotSerializer(JsonPayloadSerializer.of(classOf[String]))
+    .build()
 
-  def findById(id: UserAccountId)
-    (implicit ec: ExecutionContext): Future[Option[UserAccount]] = {
-    eventStoreAsync.getLatestSnapshotById(classOf[UserAccount], id).flatMap {
-      case Some((userAccount, version)) =>
-        eventStoreAsync
-          .getEventsByIdSinceSequenceNumber(
-            classOf[UserAccountEvent], id, userAccount.sequenceNumber + 1).map { events =>
-            Some(UserAccount.replay(events, userAccount, version))
-          }
-      case None =>
-        Future.successful(None)
+  def event(id: AggregateId, seqNr: Long, name: String): EventEnvelope[String] = EventEnvelope
+    .builder[String]()
+    .aggregateId(id)
+    .seqNr(seqNr)
+    .occurredAt(Instant.parse("2026-10-10T00:00:00.123456789Z"))
+    .payload(name)
+    .build()
+
+  def snapshot(seqNr: Long, name: String): SnapshotEnvelope[String] =
+    SnapshotEnvelope.builder[String]().seqNr(seqNr).aggregate(name).build()
+
+  def restore(store: EventStore[String, String], id: AggregateId): Try[Option[String]] =
+    store.getLatestSnapshotById(id).flatMap {
+      case None => Success(None)
+      case Some(read) =>
+        val start = read.snapshot.map(_.seqNr() + 1).getOrElse(1L)
+        store.getEventsByIdSinceSeqNr(id, start).map { events =>
+          events.foldLeft(read.snapshot.map(_.aggregate()))((_, event) => Some(event.payload()))
+        }
     }
-  }
 
+  def restoreAsync(store: EventStoreAsync[String, String], id: AggregateId)(implicit ec: ExecutionContext): Future[Option[String]] =
+    store.getLatestSnapshotById(id).flatMap {
+      case None => Future.successful(None)
+      case Some(read) =>
+        val start = read.snapshot.map(_.seqNr() + 1).getOrElse(1L)
+        store.getEventsByIdSinceSeqNr(id, start).map { events =>
+          events.foldLeft(read.snapshot.map(_.aggregate()))((_, event) => Some(event.payload()))
+        }
+    }
 }
 ```
 
-The following is an example of the repository usage.
-
 ```scala
-val eventStore = EventStoreAsync.ofDynamoDB[UserAccountId, UserAccount, UserAccountEvent](
-  dynamodbClient,
-  journalTableName,
-  snapshotTableName,
-  journalAidIndexName,
-  snapshotAidIndexName,
-  32
-)
-val repository = new UserAccountRepositoryAsync(eventStore)
+import com.github.j5ik2o.event.store.adapter.java.memory.MemoryStorage
 
-val id                 = UserAccountId(UUID.randomUUID().toString)
-val (aggregate, event) = UserAccount.create(id, "test-1")
+val storage = MemoryStorage.create()
+val store = EventStore.ofMemory(storage, AccountExample.config).get
+val id = AggregateId.of("Account", "example-1")
+store.persistEvent(AccountExample.event(id, 1L, "Alice")).get
+store.persistEventAndSnapshot(
+  AccountExample.event(id, 2L, "Bob"), AccountExample.snapshot(2L, "Bob")
+).get
+val name = AccountExample.restore(store, id).get // Some("Bob")
 
-val result = for {
-  _ <- repository.store(event, aggregate)
-  aggregate <- repository.findById(id)
-} yield aggregate
+implicit val ec: ExecutionContext = ExecutionContext.global
+val updated: Future[Option[String]] = for {
+  async <- EventStoreAsync.ofMemory(storage, AccountExample.config)
+  _ <- async.persistEvent(AccountExample.event(id, 3L, "Carol"))
+  result <- AccountExample.restoreAsync(async, id)
+} yield result // Some("Carol")
 ```
 
-## Table Specifications
+Only stores given the same `MemoryStorage` share records, settings and locking. `ofMemory(config)` creates an isolated storage for each call, for both synchronous and asynchronous factories. Memory's asynchronous work completes on the calling thread.
 
-See [docs/DATABASE_SCHEMA.md](docs/DATABASE_SCHEMA.md).
+| Public operation | Synchronous result | Asynchronous result |
+|---|---|---|
+| `persistEvent(event)` | `Try[Unit]` | `Future[Unit]` |
+| `persistEventAndSnapshot(event, snapshot)` | `Try[Unit]` | `Future[Unit]` |
+| `getLatestSnapshotById(id)` | `Try[Option[SnapshotReadResult[A]]]` | Corresponding `Future` |
+| `getEventsByIdSinceSeqNr(id, start)` | `Try[Seq[EventEnvelope[P]]]` | Corresponding `Future` |
 
-## License.
+Sequence 1 creates a head, even without a snapshot. Later events immediately follow the head. Duplicates and stale sequences cause `OptimisticLockException`; gaps cause `ContractViolationException`. Event and snapshot sequences must match. There is no version expectation argument.
 
-MIT License. See [LICENSE](LICENSE) for details.
+An empty outer `Option` means no head exists. A present `SnapshotReadResult` with an empty `snapshot` means the aggregate exists without a snapshot. Replay starts at 1 without a snapshot, or `snapshot.seqNr() + 1` with one. `headSeqNr` is neither the replay start nor an upper bound. Memory reads the pair atomically; DynamoDB reads each item strongly consistently but the pair non-atomically, so a snapshot may be older or newer than the head. Event reads consume every page.
 
-## Links
+## DynamoDB factories
 
-- [Common Documents](https://github.com/j5ik2o/event-store-adapter)
+Provision [three tables and the snapshot global secondary index](docs/DATABASE_SCHEMA.md) before creation. The caller owns and closes configured SDK clients. Factories validate or initialize the configuration items, and never provision tables.
+
+```scala
+import com.github.j5ik2o.event.store.adapter.java.dynamodb.DynamoDbTableConfig
+import software.amazon.awssdk.services.dynamodb.{DynamoDbClient, DynamoDbAsyncClient}
+
+val tables = DynamoDbTableConfig.builder()
+  .journalTableName("example-journal")
+  .snapshotTableName("example-snapshot")
+  .headTableName("example-head")
+  .snapshotAidIndexName("example-history")
+  .build()
+
+// client: DynamoDbClient, asyncClient: DynamoDbAsyncClient
+val syncCreation = EventStore.ofDynamoDB(client, tables, AccountExample.config)
+val asyncCreation = EventStoreAsync.ofDynamoDB(asyncClient, tables, AccountExample.config)
+```
+
+Use the asynchronous store only after `asyncCreation` succeeds. It is connected to Java's asynchronous configuration I/O; synchronous I/O is not scheduled inside a Scala `Future`.
+
+## Retention and failures
+
+`RetentionPolicy.none()` keeps the current snapshot only; `delete(n)` keeps the newest n history snapshots. DynamoDB also supports `ttl(n, graceSeconds)` with snapshot TTL enabled. Memory rejects TTL. Configure the policy on `MemoryStorage` or `DynamoDbTableConfig`.
+
+A retention failure after commit preserves write success, logs the failure and notifies `retentionFailureListener` with the original cause. Java owns persistence, locking, cleanup and retries. The Scala layer converts only results and future wrappers.
+
+Failures retain the Java exception type, `category()`, original cause and diagnostics: `OptimisticLockException`, `ContractViolationException`, `SerializationException`, `ConfigurationException`, `StorageException`. Contract violations expose `rule()` and `seqNr()`. Inspect failure values, not message text, to classify errors. Synchronous exceptions raised while invoking the asynchronous Java API become failed Scala futures.
+
+## Migration and verification
+
+See [MIGRATION_GUIDE](MIGRATION_GUIDE.md) for the old-version read → application conversion → new-envelope rewrite procedure. Existing stored data is not automatically converted.
+
+```sh
+sbt +compile +test +lint
+python3 tools/conformance/manifest.py verify
+```
+
+Docker is required for the pinned DynamoDB Local 3.3.1 tests. [The conformance suite](src/test/scala/com/github/j5ik2o/event/store/adapter/scala/conformance/ScalaPublicConformanceSpec.scala) reuses the accepted comparison and fault machinery through Scala public factories and operations. Reports are saved in `target/reports/<scala-version>/conformance/`; they include per-rule results, manifest checks, fault applications and reasoned exclusions. FNV-1a 64 cases remain outside this release's storage profiles and do not count as successes.
+
+MIT License. See [LICENSE](LICENSE).

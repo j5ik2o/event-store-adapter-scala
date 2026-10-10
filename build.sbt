@@ -1,4 +1,4 @@
-import Dependencies.{dockerJava, fasterxml, j5ik2o, logback, scalatest, Versions}
+import Dependencies.{j5ik2o, logback, scalatest, testSupport, Versions}
 import Dependencies.Versions._
 
 ThisBuild / organization := "io.github.j5ik2o"
@@ -52,7 +52,7 @@ def extraFlags(scalaVer: String): Seq[String] =
   }
 ThisBuild / scalacOptions ++= commonFlags ++ extraFlags(scalaVersion.value)
 ThisBuild / resolvers ++= Seq(
-  "DynamoDB Local Repository" at "https://s3-us-west-2.amazonaws.com/dynamodb-local/release",
+  "Sonatype Snapshots" at "https://central.sonatype.com/repository/maven-snapshots/",
 )
 ThisBuild / semanticdbEnabled := true
 ThisBuild / semanticdbVersion := scalafixSemanticdb.revision
@@ -86,11 +86,18 @@ lazy val root = (project in file("."))
     libraryDependencies ++= Seq(
       scalatest.scalatest % Test,
       logback.classic % Test,
-      (j5ik2o.dockerController_ScalaTest % Test).exclude("org.seasar.util", "s2util"),
-      (j5ik2o.dockerController_LocalStack % Test).exclude("org.seasar.util", "s2util"),
-      dockerJava.httpclient5Transport % Test,
       j5ik2o.eventStoreAdapterJava,
-      fasterxml.jacksonModuleScala,
+      testSupport.junitApi % Test,
+      testSupport.junitEngine % Test,
+      testSupport.junitLauncher % Test,
+      testSupport.testcontainers % Test,
+      testSupport.jsonSchema % Test,
+      testSupport.apacheClient % Test,
+      testSupport.nettyClient % Test,
+    ),
+    Test / javaOptions ++= Seq(
+      s"-Deswa.implementation.version=${version.value}",
+      s"-Deswa.scala.version=${scalaVersion.value}",
     ),
   )
 

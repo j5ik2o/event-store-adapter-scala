@@ -1,138 +1,60 @@
 package com.github.j5ik2o.event.store.adapter.scala
 
-import com.github.j5ik2o.event.store.adapter.java.{Aggregate, AggregateId, Event}
-import com.github.j5ik2o.event.store.adapter.scala.internal.EventStoreForDynamoDB
+import com.github.j5ik2o.event.store.adapter.java.core.{
+  AggregateId,
+  ConfigurationException,
+  EventEnvelope,
+  EventStoreConfig,
+  SnapshotEnvelope,
+}
+import com.github.j5ik2o.event.store.adapter.java.dynamodb.{DynamoDbEventStore, DynamoDbTableConfig}
+import com.github.j5ik2o.event.store.adapter.java.memory.{MemoryEventStore, MemoryStorage}
+import com.github.j5ik2o.event.store.adapter.scala.internal.{JavaEventStoreAdapter, JavaInterop}
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient
 
 import scala.util.Try
 
-/**
- * Represents a companion object of [[EventStore]]. / [[EventStore]]のコンパニオンオブジェクトを表します。
- */
+/** Synchronous factories. / 同期の生成入口。 */
 object EventStore {
 
+  /** Creates an isolated process-local store. / 独立したプロセス内の保存先を作ります。 */
+  def ofMemory[P, A](config: EventStoreConfig[P, A]): Try[EventStore[P, A]] =
+    ofMemory(MemoryStorage.create(), config)
+
+  /** Shares records and settings through the supplied storage. / 指定した保存先の状態と設定を共有します。 */
+  def ofMemory[P, A](storage: MemoryStorage, config: EventStoreConfig[P, A]): Try[EventStore[P, A]] =
+    JavaInterop.attempt {
+      if (Option(storage).isEmpty || Option(config).isEmpty) {
+        throw new ConfigurationException("storage and config are required")
+      }
+      new JavaEventStoreAdapter(MemoryEventStore.create(storage, config))
+    }
+
   /**
-   * Creates an instance of [[EventStore]] for DynamoDB. / DynamoDB用の[[EventStore]]のインスタンスを作成します。
-   *
-   * @param dynamoDbClient
-   *   [[DynamoDbClient]]
-   * @param journalTableName
-   *   journal table name / ジャーナルテーブル名
-   * @param snapshotTableName
-   *   snapshot table name / スナップショットテーブル名
-   * @param journalAidIndexName
-   *   journal aggregate id index name / ジャーナル集約IDインデックス名
-   * @param snapshotAidIndexName
-   *   snapshot aggregate id index name / スナップショット集約IDインデックス名
-   * @param shardCount
-   *   shard count / シャード数
-   * @tparam AID
-   *   aggregate id type / 集約IDの型
-   * @tparam A
-   *   aggregate type / 集約の型
-   * @tparam E
-   *   event type / イベントの型
-   * @return
-   *   [[EventStore]]
+   * Validates configuration in three provisioned tables; the caller owns the client. /
+   * 作成済み3表の設定を照合します。クライアントは呼出元が所有します。
    */
-  def ofDynamoDB[AID <: AggregateId, A <: Aggregate[A, AID], E <: Event[AID]](
-    dynamoDbClient: DynamoDbClient,
-    journalTableName: String,
-    snapshotTableName: String,
-    journalAidIndexName: String,
-    snapshotAidIndexName: String,
-    shardCount: Long,
-  ): EventStore[AID, A, E] =
-    EventStoreForDynamoDB.create(
-      dynamoDbClient,
-      journalTableName,
-      snapshotTableName,
-      journalAidIndexName,
-      snapshotAidIndexName,
-      shardCount,
-    )
+  def ofDynamoDB[P, A](
+    client: DynamoDbClient,
+    tables: DynamoDbTableConfig,
+    config: EventStoreConfig[P, A],
+  ): Try[EventStore[P, A]] =
+    JavaInterop.attempt(new JavaEventStoreAdapter(DynamoDbEventStore.create(client, tables, config)))
 }
 
 /**
- * Represents an event store. / イベントストアを表します。
- *
- * @tparam AID
- *   [[Aggregate]] id type / 集約IDの型
- * @tparam A
- *   [[Aggregate]] type / 集約の型
- * @tparam E
- *   [[Event]] type / イベントの型
+ * Four envelope operations, with payload types bound at creation. / 生成時にペイロード型を決める、封筒の4操作。
  */
-trait EventStore[AID <: AggregateId, A <: Aggregate[A, AID], E <: Event[AID]] extends EventStoreOptions[AID, A, E] {
-  override type This = EventStore[AID, A, E]
+trait EventStore[P, A] {
+  def persistEvent(event: EventEnvelope[P]): Try[Unit]
+
+  def persistEventAndSnapshot(event: EventEnvelope[P], snapshot: SnapshotEnvelope[A]): Try[Unit]
 
   /**
-   * Gets the latest snapshot by the aggregate id. / 集約IDによる最新のスナップショットを取得します。
-   *
-   * @param clazz
-   *   class of Aggregate A to be serialized / シリアライズ対象の集約Aのクラス
-   * @param id
-   *   id of [[Aggregate]] A / 集約AのID
-   * @return
-   *   `Try[Option[A]]`
-   * @throws com.github.j5ik2o.event.store.adapter.java.EventStoreReadException
-   *   if an error occurred during reading from the event store / イベントストアからの読み込み中にエラーが発生した場合
-   * @throws com.github.j5ik2o.event.store.adapter.java.DeserializationException
-   *   if an error occurred during serialization / デシリアライズ中にエラーが発生した場合
+   * None means no head; a present result may have no snapshot. / 外側のNoneはヘッド不存在です。存在する結果もスナップショットを持たない場合があります。
    */
-  def getLatestSnapshotById(clazz: Class[A], id: AID): Try[Option[A]]
+  def getLatestSnapshotById(id: AggregateId): Try[Option[SnapshotReadResult[A]]]
 
-  /**
-   * Gets the events by the aggregate id and since the sequence number. / IDとシーケンス番号以降のイベントを取得します。
-   *
-   * @param clazz
-   *   class of Event E to be serialized / シリアライズ対象Eのクラス
-   * @param id
-   *   id of [[Aggregate]] A / 集約AのID
-   * @param sequenceNumber
-   *   sequence number / シーケンス番号
-   * @return
-   *   `Try[Seq[E]]`
-   * @throws com.github.j5ik2o.event.store.adapter.java.EventStoreReadException
-   *   if an error occurred during reading from the event store
-   * @throws com.github.j5ik2o.event.store.adapter.java.DeserializationException
-   *   if an error occurred during serialization / デシリアライズ中にエラーが発生した場合
-   */
-  def getEventsByIdSinceSequenceNumber(clazz: Class[E], id: AID, sequenceNumber: Long): Try[Seq[E]]
-
-  /**
-   * Persists an event only. / イベントのみを永続化します。
-   *
-   * @param event
-   *   [[Event]]
-   * @param version
-   *   バージョン
-   * @return
-   *   `Try[Unit]`
-   * @throws com.github.j5ik2o.event.store.adapter.java.EventStoreWriteException
-   *   if an error occurred during writing to the event store / イベントストアへの書き込み中にエラーが発生した場合
-   * @throws com.github.j5ik2o.event.store.adapter.java.SerializationException
-   *   if an error occurred during serialization / シリアライズ中にエラーが発生した場合
-   * @throws com.github.j5ik2o.event.store.adapter.java.TransactionException
-   *   if an error occurred during transaction / トランザクション中にエラーが発生した場合
-   */
-  def persistEvent(event: E, version: Long): Try[Unit]
-
-  /**
-   * Persists an event and a snapshot. / イベントとスナップショットを永続化します。
-   *
-   * @param event
-   *   [[Event]]
-   * @param snapshot
-   *   [[Aggregate]]
-   * @return
-   *   `Try[Unit]`
-   * @throws com.github.j5ik2o.event.store.adapter.java.EventStoreWriteException
-   *   if an error occurred during writing to the event store / イベントストアへの書き込み中にエラーが発生した場合
-   * @throws com.github.j5ik2o.event.store.adapter.java.SerializationException
-   *   if an error occurred during serialization / シリアライズ中にエラーが発生した場合
-   * @throws com.github.j5ik2o.event.store.adapter.java.TransactionException
-   *   if an error occurred during transaction / トランザクション中にエラーが発生した場合
-   */
-  def persistEventAndSnapshot(event: E, snapshot: A): Try[Unit]
+  /** Reads every event at or above start, in ascending order. / start以上の全封筒を昇順で読みます。 */
+  def getEventsByIdSinceSeqNr(id: AggregateId, start: Long): Try[Seq[EventEnvelope[P]]]
 }

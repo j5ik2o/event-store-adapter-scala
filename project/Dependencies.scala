@@ -7,8 +7,6 @@ object Dependencies {
     val scala3Version = "3.6.4"
 
     val logbackVersion = "1.6.5"
-    val slf4jVersion = "1.7.36"
-    val awsSdkV2Version = "2.55.11"
 
     val scalaTest32Version = "3.2.20"
 
@@ -16,30 +14,18 @@ object Dependencies {
 
   import Versions._
 
-  object fasterxml {
-    val jacksonModuleScala = "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.22.3.1"
-  }
-
   object j5ik2o {
-    val dockerController_ScalaTest =
-      ("com.github.j5ik2o" %% "docker-controller-scala-scalatest" % "1.15.34")
-        .exclude("com.github.docker-java", "docker-java-transport-httpclient5")
-    val dockerController_LocalStack =
-      ("com.github.j5ik2o" %% "docker-controller-scala-localstack" % "1.15.34")
-        .exclude("com.github.docker-java", "docker-java-transport-httpclient5")
-    val eventStoreAdapterJava = "io.github.j5ik2o" % "event-store-adapter-java" % "1.2.91"
+    val eventStoreAdapterJava = "io.github.j5ik2o" % "event-store-adapter-java" % "2.0.0-SNAPSHOT"
   }
 
-  object dockerJava {
-    // HttpClient 5.4+ requires the updated Unix socket connection operator.
-    val httpclient5Transport =
-      ("com.github.docker-java" % "docker-java-transport-httpclient5" % "3.7.1")
-        // Keep the existing JNA dependency supplied by docker-java-transport-okhttp.
-        .exclude("net.java.dev.jna", "jna")
-  }
-
-  object softwareamazon {
-    val dynamodb = "software.amazon.awssdk" % "dynamodb" % awsSdkV2Version
+  object testSupport {
+    val junitApi = "org.junit.jupiter" % "junit-jupiter-api" % "5.14.4"
+    val junitEngine = "org.junit.jupiter" % "junit-jupiter-engine" % "5.14.4"
+    val junitLauncher = "org.junit.platform" % "junit-platform-launcher" % "1.14.4"
+    val testcontainers = "org.testcontainers" % "testcontainers" % "2.0.5"
+    val jsonSchema = "com.networknt" % "json-schema-validator" % "2.0.8"
+    val apacheClient = "software.amazon.awssdk" % "apache5-client" % "2.55.13"
+    val nettyClient = "software.amazon.awssdk" % "netty-nio-client" % "2.55.13"
   }
 
   object logback {

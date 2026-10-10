@@ -1,87 +1,39 @@
 package com.github.j5ik2o.event.store.adapter.scala.internal
 
-import com.github.j5ik2o.dockerController.localstack.{LocalStackController, Service}
-import com.github.j5ik2o.dockerController.{DockerController, DockerControllerSpecSupport, WaitPredicates}
+import com.github.j5ik2o.event.store.adapter.java.core.SnapshotEnvelope
 import com.github.j5ik2o.event.store.adapter.scala.EventStoreAsync
 import org.scalatest.OptionValues
-import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.freespec.AnyFreeSpec
-import software.amazon.awssdk.regions.Region
-import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
 
-import java.util.UUID
-import java.util.concurrent.Executors
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{Await, ExecutionContext}
 import scala.concurrent.duration._
 
-class EventStoreAsyncForDynamoDBSpec
-  extends AnyFreeSpec
-  with DockerControllerSpecSupport
-  with OptionValues
-  with ScalaFutures {
-  val accessKeyId: String = "AKIAIOSFODNN7EXAMPLE"
-  val secretAccessKey: String = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
-  val hostPort: Int = temporaryServerPort()
-  val endpointForDynamoDB: String = s"http://$dockerHost:$hostPort"
-  val region: Region = Region.AP_NORTHEAST_1
+final class EventStoreAsyncForDynamoDBSpec extends AnyFreeSpec with OptionValues {
+  private implicit val ec: ExecutionContext = ExecutionContext.global
 
-  val journalTableName = "journal"
-  val snapshotTableName = "snapshot"
-  val journalAidIndexName = "journal-aid-index"
-  val snapshotAidIndexName = "snapshot-aid-index"
-
-  val controller: LocalStackController =
-    LocalStackController(dockerClient)(
-      services = Set(Service.DynamoDB),
-      edgeHostPort = hostPort,
-      hostNameExternal = Some(dockerHost),
-      defaultRegion = Some(region.toString),
-    )
-
-  val testTimeFactor: Float = sys.env.getOrElse("TEST_TIME_FACTOR", "1").toFloat
-  logger.debug(s"testTimeFactor = $testTimeFactor")
-
-  implicit val pc: PatienceConfig =
-    PatienceConfig((30 * testTimeFactor).toInt.seconds, (1 * testTimeFactor).toInt.seconds)
-
-  override protected val dockerControllers: Vector[DockerController] = Vector(controller)
-
-  override protected val waitPredicatesSettings: Map[DockerController, WaitPredicateSetting] =
-    Map(
-      controller -> WaitPredicateSetting(Duration.Inf, WaitPredicates.forLogMessageExactly("Ready.")),
-    )
-
-  val dynamodbAsyncClient: DynamoDbAsyncClient =
-    DynamoDBUtils.dynamodbAsyncClient(endpointForDynamoDB, accessKeyId, secretAccessKey, region)
-
-  override protected def afterStartContainers(): Unit = {
-    super.afterStartContainers()
-    implicit val ec = ExecutionContext.fromExecutorService(Executors.newCachedThreadPool())
-    DynamoDBUtils.createJournalTableAsync(dynamodbAsyncClient, journalTableName, journalAidIndexName)
-    DynamoDBUtils.createSnapshotTableAsync(dynamodbAsyncClient, snapshotTableName, snapshotAidIndexName)
-  }
-
-  "EventStore" - {
-    "persistEventAndSnapshot and getLatestSnapshotById" in {
-      implicit val ec = ExecutionContext.fromExecutorService(Executors.newCachedThreadPool())
-      val eventStore = EventStoreAsync.ofDynamoDB[UserAccountId, UserAccount, UserAccountEvent](
-        dynamodbAsyncClient,
-        journalTableName,
-        snapshotTableName,
-        journalAidIndexName,
-        snapshotAidIndexName,
-        32,
-      )
-
-      val id = UserAccountId(UUID.randomUUID().toString)
-      val (aggregate, event) = UserAccount.create(id, "test-1")
-
-      eventStore.persistEventAndSnapshot(event, aggregate).futureValue
-
-      val userAccount = eventStore.getLatestSnapshotById(classOf[UserAccount], id).futureValue.value
-      assert(userAccount.id == id)
-      assert(userAccount.name == "test-1")
-
+  "asynchronous public creation and all four operations with arbitrary Scala payloads" in
+    DynamoDBUtils.withTables { (_, client, tables) =>
+      val id = UserAccountId("async-example")
+      val (alice, first) = UserAccount.create(id, "Alice")
+      val (bob, second) = alice.changeName(id, 2L, "Bob")
+      val snapshot = SnapshotEnvelope.builder[UserAccount]().seqNr(2L).aggregate(bob).build()
+      val checked = for {
+        store <- EventStoreAsync.ofDynamoDB(client, tables, UserAccount.config)
+        missing <- store.getLatestSnapshotById(id.toJava)
+        _ = assert(missing.isEmpty)
+        _ <- store.persistEvent(first)
+        withoutSnapshot <- store.getLatestSnapshotById(id.toJava)
+        _ = assert(withoutSnapshot.value.snapshot.isEmpty && withoutSnapshot.value.headSeqNr == 1L)
+        _ <- store.persistEventAndSnapshot(second, snapshot)
+        read <- store.getLatestSnapshotById(id.toJava)
+        events <- store.getEventsByIdSinceSeqNr(id.toJava, 1L)
+      } yield {
+        assert(read.value.snapshot.value.aggregate() == bob)
+        assert(read.value.snapshot.value.seqNr() == 2L && read.value.headSeqNr == 2L)
+        assert(events.map(_.seqNr()) == Seq(1L, 2L))
+        assert(events.head.occurredAt() == first.occurredAt())
+        assert(events.map(_.payload()) == Seq(first.payload(), second.payload()))
+      }
+      Await.result(checked, 30.seconds)
     }
-  }
 }

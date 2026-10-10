@@ -1,29 +1,27 @@
 package com.github.j5ik2o.event.store.adapter.scala.internal
 
+import com.github.j5ik2o.event.store.adapter.java.core.{EventEnvelope, SnapshotEnvelope}
 import com.github.j5ik2o.event.store.adapter.scala.EventStoreAsync
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class UserAccountRepositoryAsync(
-  eventStoreAsyncForDynamoDB: EventStoreAsync[UserAccountId, UserAccount, UserAccountEvent],
-) {
+final class UserAccountRepositoryAsync(eventStore: EventStoreAsync[UserAccountEvent, UserAccount]) {
+  def store(event: EventEnvelope[UserAccountEvent])(implicit ec: ExecutionContext): Future[Unit] =
+    eventStore.persistEvent(event)
 
-  def store(userAccountEvent: UserAccountEvent, version: Long)(implicit ec: ExecutionContext): Future[Unit] =
-    eventStoreAsyncForDynamoDB.persistEvent(userAccountEvent, version)
-
-  def store(userAccountEvent: UserAccountEvent, userAccount: UserAccount)(implicit ec: ExecutionContext): Future[Unit] =
-    eventStoreAsyncForDynamoDB.persistEventAndSnapshot(userAccountEvent, userAccount)
+  def store(event: EventEnvelope[UserAccountEvent], state: UserAccount)(implicit ec: ExecutionContext): Future[Unit] =
+    eventStore.persistEventAndSnapshot(
+      event,
+      SnapshotEnvelope.builder[UserAccount]().seqNr(event.seqNr()).aggregate(state).build(),
+    )
 
   def findById(id: UserAccountId)(implicit ec: ExecutionContext): Future[Option[UserAccount]] =
-    eventStoreAsyncForDynamoDB.getLatestSnapshotById(classOf[UserAccount], id).flatMap {
-      case Some(userAccount) =>
-        eventStoreAsyncForDynamoDB
-          .getEventsByIdSinceSequenceNumber(classOf[UserAccountEvent], id, userAccount.sequenceNumber + 1)
-          .map { events =>
-            Some(UserAccount.replay(events, userAccount))
-          }
-      case None =>
-        Future.successful(None)
+    eventStore.getLatestSnapshotById(id.toJava).flatMap {
+      case Some(read) =>
+        val start = read.snapshot.map(_.seqNr() + 1).getOrElse(1L)
+        eventStore.getEventsByIdSinceSeqNr(id.toJava, start).map { events =>
+          UserAccount.replay(events, read.snapshot.map(_.aggregate()))
+        }
+      case None => Future.successful(None)
     }
-
 }
