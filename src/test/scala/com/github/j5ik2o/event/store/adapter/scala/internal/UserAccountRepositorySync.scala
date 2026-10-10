@@ -1,29 +1,26 @@
 package com.github.j5ik2o.event.store.adapter.scala.internal
 
+import com.github.j5ik2o.event.store.adapter.java.core.{EventEnvelope, SnapshotEnvelope}
 import com.github.j5ik2o.event.store.adapter.scala.EventStore
 
 import scala.util.{Success, Try}
 
-class UserAccountRepositorySync(
-  eventStoreForDynamoDB: EventStore[UserAccountId, UserAccount, UserAccountEvent],
-) {
+final class UserAccountRepositorySync(eventStore: EventStore[UserAccountEvent, UserAccount]) {
+  def store(event: EventEnvelope[UserAccountEvent]): Try[Unit] = eventStore.persistEvent(event)
 
-  def store(userAccountEvent: UserAccountEvent, version: Long): Try[Unit] =
-    eventStoreForDynamoDB.persistEvent(userAccountEvent, version)
-
-  def store(userAccountEvent: UserAccountEvent, userAccount: UserAccount): Try[Unit] =
-    eventStoreForDynamoDB.persistEventAndSnapshot(userAccountEvent, userAccount)
+  def store(event: EventEnvelope[UserAccountEvent], state: UserAccount): Try[Unit] =
+    eventStore.persistEventAndSnapshot(
+      event,
+      SnapshotEnvelope.builder[UserAccount]().seqNr(event.seqNr()).aggregate(state).build(),
+    )
 
   def findById(id: UserAccountId): Try[Option[UserAccount]] =
-    eventStoreForDynamoDB.getLatestSnapshotById(classOf[UserAccount], id).flatMap {
-      case Some(userAccount) =>
-        eventStoreForDynamoDB
-          .getEventsByIdSinceSequenceNumber(classOf[UserAccountEvent], id, userAccount.sequenceNumber + 1)
-          .map { events =>
-            Some(UserAccount.replay(events, userAccount))
-          }
-      case None =>
-        Success(None)
+    eventStore.getLatestSnapshotById(id.toJava).flatMap {
+      case Some(read) =>
+        val start = read.snapshot.map(_.seqNr() + 1).getOrElse(1L)
+        eventStore.getEventsByIdSinceSeqNr(id.toJava, start).map { events =>
+          UserAccount.replay(events, read.snapshot.map(_.aggregate()))
+        }
+      case None => Success(None)
     }
-
 }

@@ -1,13 +1,7 @@
 package com.github.j5ik2o.event.store.adapter.scala.internal
 
-import com.fasterxml.jackson.annotation.JsonProperty
-import com.github.j5ik2o.event.store.adapter.java.AggregateId
+import com.github.j5ik2o.event.store.adapter.java.core.AggregateId
 
-final case class UserAccountId(@JsonProperty("value") value: String) extends AggregateId {
-  @JsonProperty(access = JsonProperty.Access.READ_ONLY)
-  override def getTypeName = "UserAccount"
-
-  override def getValue: String = value
-
-  override def asString(): String = value
+final case class UserAccountId(value: String) {
+  def toJava: AggregateId = AggregateId.of("UserAccount", value)
 }
