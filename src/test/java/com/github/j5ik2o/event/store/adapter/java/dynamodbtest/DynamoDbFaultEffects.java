@@ -47,10 +47,6 @@ final class DynamoDbFaultEffects {
     };
   }
 
-  static FaultRegistry.Effect sdkError(String code) {
-    return sdkError(code, "Injected DynamoDB test failure");
-  }
-
   static FaultRegistry.Effect sdkError(String code, String message) {
     return new RequestEffect() {
       @Override
@@ -58,15 +54,6 @@ final class DynamoDbFaultEffects {
         return error(code, DynamoDbJson.object().put("Message", message));
       }
     };
-  }
-
-  static FaultRegistry.Effect transactionCanceled(
-      DynamoDbRequestTargets targets,
-      Map<String, String> codes,
-      Long oldHeadSeqNr,
-      Runnable installItems) {
-    return transactionCanceled(
-        targets, codes, oldHeadSeqNr, "Injected DynamoDB test failure", installItems);
   }
 
   static FaultRegistry.Effect transactionCanceled(
@@ -191,11 +178,6 @@ final class DynamoDbFaultEffects {
       // For an entirely skipped batch the HTTP reply already contains the excluded writes.
       return empty ? response : batch.toBuilder().unprocessedItems(combined).build();
     }
-  }
-
-  static FaultRegistry.Effect partialBatchGet(
-      DynamoDbClient admin, Map<String, List<Map<String, AttributeValue>>> unprocessed) {
-    return partialBatchGet(admin, unprocessed, null);
   }
 
   static FaultRegistry.Effect partialBatchGet(

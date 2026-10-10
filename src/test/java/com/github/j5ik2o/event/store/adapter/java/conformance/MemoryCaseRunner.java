@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Function;
 
 /** 実際のメモリ操作の結果を、共通データの期待値と比較する。 */
 final class MemoryCaseRunner {
@@ -19,13 +20,30 @@ final class MemoryCaseRunner {
   }
 
   static CaseResult run(ConformanceCase c) {
-    CaseResult sync = runPath(c, false);
-    CaseResult async = runPath(c, true);
+    return run(c, asynchronous -> runPath(c, asynchronous));
+  }
+
+  static CaseResult run(ConformanceCase c, Function<Boolean, CaseResult> executePath) {
+    CaseResult sync = runSafely(c, false, executePath);
+    CaseResult async = runSafely(c, true, executePath);
     ObjectNode actual = ConformanceJson.mapper().createObjectNode();
     actual.set("sync", sync.actual());
     actual.set("async", async.actual());
     CaseResult failure = sync.status() != ConformanceStatus.PASSED ? sync : async;
     return result(c, failure.status(), failure.reason(), failure.failedOperation(), actual);
+  }
+
+  private static CaseResult runSafely(
+      ConformanceCase c, boolean asynchronous, Function<Boolean, CaseResult> executePath) {
+    try {
+      return executePath.apply(asynchronous);
+    } catch (RuntimeException | AssertionError failure) {
+      ObjectNode actual = ConformanceJson.mapper().createObjectNode();
+      actual.put("exception", failure.getClass().getName());
+      actual.put("message", failure.getMessage());
+      return result(c, ConformanceStatus.FAILED,
+          (asynchronous ? "async" : "sync") + ": " + failure, null, actual);
+    }
   }
 
   private static CaseResult runPath(ConformanceCase c, boolean asynchronous) {

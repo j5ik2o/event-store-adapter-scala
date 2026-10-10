@@ -79,6 +79,8 @@ final class DynamoDbRequestRecorder implements ExecutionInterceptor {
     int httpAttempts;
     int transmissions;
     boolean requestReplaced;
+    int pendingTransmissionRecords;
+    boolean sdkFinished;
     final CompletableFuture<Void> termination = new CompletableFuture<>();
   }
 
@@ -195,6 +197,19 @@ final class DynamoDbRequestRecorder implements ExecutionInterceptor {
     state.transmitted = DynamoDbJson.read(body);
   }
 
+  synchronized CompletableFuture<Void> transmissionRecordingStarted(SdkHttpRequest request) {
+    State state = state(request);
+    state.pendingTransmissionRecords++;
+    CompletableFuture<Void> recording = new CompletableFuture<>();
+    recording.whenComplete((ignored, failure) -> transmissionRecordingFinished(state));
+    return recording;
+  }
+
+  private synchronized void transmissionRecordingFinished(State state) {
+    state.pendingTransmissionRecords--;
+    finishIfReady(state);
+  }
+
   private State state(SdkHttpRequest request) {
     long id =
         Long.parseLong(
@@ -239,12 +254,19 @@ final class DynamoDbRequestRecorder implements ExecutionInterceptor {
 
   private synchronized void terminal(ExecutionAttributes attrs) {
     State state = attrs.getAttribute(STATE);
-    if (state != null && !state.termination.isDone()) {
+    if (state != null && !state.sdkFinished) {
+      state.sdkFinished = true;
+      state.finishedNanos = System.nanoTime();
+      finishIfReady(state);
+    }
+  }
+
+  private void finishIfReady(State state) {
+    if (state.sdkFinished && state.pendingTransmissionRecords == 0 && !state.termination.isDone()) {
       if (state.selection != null && !faults.isApplied(state.selection))
         pages.remove(state.operation, state.selection);
       faults.release(state.selection);
       faults.requestFinished(state.operation);
-      state.finishedNanos = System.nanoTime();
       state.termination.complete(null);
     }
   }

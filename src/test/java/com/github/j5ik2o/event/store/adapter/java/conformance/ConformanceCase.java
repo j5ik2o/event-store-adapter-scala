@@ -47,10 +47,6 @@ final class ConformanceCase {
     return rules;
   }
 
-  ObjectNode raw() {
-    return raw;
-  }
-
   ObjectNode materialized() {
     return materialized;
   }

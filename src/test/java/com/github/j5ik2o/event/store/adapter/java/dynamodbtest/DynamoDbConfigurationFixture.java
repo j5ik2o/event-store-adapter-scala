@@ -103,20 +103,6 @@ public final class DynamoDbConfigurationFixture implements BeforeAllCallback {
     }
   }
 
-  static EventStoreConfig<String, String> storeConfig() {
-    return EventStoreConfig.<String, String>builder()
-        .payloadSerializer(JsonPayloadSerializer.of(String.class))
-        .snapshotSerializer(JsonPayloadSerializer.of(String.class))
-        .build();
-  }
-
-  /** Executes both public SDK paths; expectations are used only after observing the result. */
-  public ObjectNode configuration(JsonNode scenario) {
-    ObjectNode result = DynamoDbJson.object();
-    configuration(scenario, result);
-    return result;
-  }
-
   /** Records observations in the caller's node, including when a comparison fails. */
   public void configuration(JsonNode scenario, ObjectNode result) {
     String unsupported = unsupportedConfiguration(scenario);
