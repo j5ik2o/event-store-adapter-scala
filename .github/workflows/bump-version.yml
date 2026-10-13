@@ -12,6 +12,11 @@ on:
           - patch
           - minor
           - major
+      version:
+        description: 'Explicit next version X.Y.Z (optional; overrides level)'
+        required: false
+        type: string
+        default: ''
       force_bump:
         description: 'Force version bump'
         required: true
@@ -31,7 +36,30 @@ jobs:
         env:
           FORCE_BUMP: ${{ inputs.force_bump }}
           LEVEL: ${{ inputs.level }}
+          VERSION: ${{ inputs.version }}
         run: |
+          # version が指定されたときは level を無視し、検査に通れば何も計算せず 1 件とみなす。
+          if [[ -n "$VERSION" ]]; then
+            if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "::error::version must be X.Y.Z (digits only): $VERSION" >&2
+              exit 1
+            fi
+            if git rev-parse -q --verify "refs/tags/v$VERSION" > /dev/null; then
+              echo "::error::tag v$VERSION already exists" >&2
+              exit 1
+            fi
+            MAX_TAG=$(git tag -l 'v*' | sort -V | tail -n 1)
+            if [[ -n "$MAX_TAG" ]]; then
+              TOP=$(printf '%s\n%s\n' "${MAX_TAG#v}" "$VERSION" | sort -V | tail -n 1)
+              if [[ "$TOP" != "$VERSION" ]]; then
+                echo "::error::version $VERSION must be greater than the latest tag $MAX_TAG" >&2
+                exit 1
+              fi
+            fi
+            echo "count=1" >> "$GITHUB_OUTPUT"
+            echo "bump=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           # 初回以外は最新タグ以降を調べる。
           if git tag -l | grep -q .; then
             LATEST_TAG=$(git describe --abbrev=0 --tags)
@@ -76,6 +104,7 @@ jobs:
           commit_analyzer_preset: conventionalcommits
           custom_release_rules: revert:minor
           force_bump: ${{ steps.changes.outputs.bump }}
+          custom_tag: ${{ inputs.version }}
         if: steps.changes.outputs.count > 0
       - name: Create a GitHub release
         uses: actions/create-release@v1
