@@ -10,10 +10,10 @@ Scala wrappers for the Java Memory and DynamoDB event stores. Synchronous factor
 
 ## Dependency
 
-The source is cross-built for Scala 2.13.18 and 3.6.4 and depends on `io.github.j5ik2o:event-store-adapter-java:5.0.0`. It is published to Maven Central. Older Scala artifacts expose the previous API. This library follows [common contract v5](https://github.com/j5ik2o/event-store-adapter/blob/main/docs/spec/README.md); its major version 5 matches the contract revision.
+The source is cross-built for Scala 2.13.18 and 3.6.4 and depends on `io.github.j5ik2o:event-store-adapter-java:5.0.1`. It is published to Maven Central. Older Scala artifacts expose the previous API. This library follows [common contract v5](https://github.com/j5ik2o/event-store-adapter/blob/main/docs/spec/README.md); its major version 5 matches the contract revision.
 
 ```scala
-val scalaAdapterVersion = "5.0.0"
+val scalaAdapterVersion = "5.0.1"
 libraryDependencies += "io.github.j5ik2o" %% "event-store-adapter-scala" % scalaAdapterVersion
 ```
 
@@ -133,6 +133,9 @@ Use the asynchronous store only after `asyncCreation` succeeds. It is connected 
 A retention failure after commit preserves write success, logs the failure and notifies `retentionFailureListener` with the original cause. Java owns persistence, locking, cleanup and retries. The Scala layer converts only results and future wrappers.
 
 Failures retain the Java exception type, `category()`, original cause and diagnostics: `OptimisticLockException`, `ContractViolationException`, `SerializationException`, `ConfigurationException`, `StorageException`. Contract violations expose `rule()` and `seqNr()`. Inspect failure values, not message text, to classify errors. Synchronous exceptions raised while invoking the asynchronous Java API become failed Scala futures.
+
+The memory storage lives in a single process. It does not persist to files, survive restarts, or share data across processes. For DynamoDB, keep the three tables in one Region and write to them only from that Region. Global tables (multi-Region replicas) are not supported.
+
 
 ## Migration and verification
 
