@@ -10,7 +10,7 @@ JavaのMemory・DynamoDBイベントストアを包むScalaライブラリです
 
 ## 導入
 
-Scala 2.13.18・3.6.4で構築し、`io.github.j5ik2o:event-store-adapter-java:2.0.0-SNAPSHOT`に依存します。このソースから作られたScalaのSnapshotを指定してください。版は既存のsbt-dynver設定から生成します。この変更で正式公開やScalaの手動版上げは行いません。旧成果物の公開操作は旧契約です。
+Scala 2.13.18・3.6.4で構築し、`io.github.j5ik2o:event-store-adapter-java:2.0.0-SNAPSHOT`に依存します。このソースから作られたScalaのSnapshotを指定してください。版は既存のsbt-dynver設定から生成します。この変更で正式公開やScalaの手動版上げは行いません。旧成果物の公開操作は旧契約です。仕様は[共通契約 v4](https://github.com/j5ik2o/event-store-adapter/blob/main/docs/spec/README.md)で、JavaやScalaの成果物の版とは別の番号です。
 
 ```scala
 val scalaAdapterVersion = "<Snapshot version built from this source>"

@@ -10,7 +10,7 @@ Scala wrappers for the Java Memory and DynamoDB event stores. Synchronous factor
 
 ## Dependency
 
-The source is cross-built for Scala 2.13.18 and 3.6.4 and depends on `io.github.j5ik2o:event-store-adapter-java:2.0.0-SNAPSHOT`. Use a Scala Snapshot built from this source. Its version is produced by the existing sbt-dynver configuration; this change does not publish a release or select a new Scala version number. Older Scala artifacts expose the previous API.
+The source is cross-built for Scala 2.13.18 and 3.6.4 and depends on `io.github.j5ik2o:event-store-adapter-java:2.0.0-SNAPSHOT`. Use a Scala Snapshot built from this source. Its version is produced by the existing sbt-dynver configuration; this change does not publish a release or select a new Scala version number. Older Scala artifacts expose the previous API. The library follows the [common contract v4](https://github.com/j5ik2o/event-store-adapter/blob/main/docs/spec/README.md); this specification version is a separate number from the Java and Scala artifact versions.
 
 ```scala
 val scalaAdapterVersion = "<Snapshot version built from this source>"

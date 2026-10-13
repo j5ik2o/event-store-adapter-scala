@@ -1,6 +1,6 @@
 # DynamoDBのスキーマ
 
-Scalaの公開生成と4操作が委譲するJava DynamoDB本体の配置です。Java依存は `2.0.0-SNAPSHOT`、共通契約はv4、配布適合データは1.0.0です。保存する `layout_version` は **1** で、これらとは別の配置番号です。
+Scalaの公開生成と4操作が委譲するJava DynamoDB本体の配置です。Java依存は `2.0.0-SNAPSHOT`、仕様は[共通契約 v4](https://github.com/j5ik2o/event-store-adapter/blob/main/docs/spec/README.md)、配布適合データは1.0.0です。保存する `layout_version` は **1** で、これらとは別の配置番号です。
 
 ## テーブルの準備
 
