@@ -114,12 +114,12 @@ jobs:
                       continue
                   row = counts.setdefault(r["rule"], dict.fromkeys(labels, 0))
                   row[r["status"]] += 1
-                  if r["status"] == "not-applicable" and r["reason"]:
+                  if r["status"] in ("not-applicable", "unrepresentable") and r["reason"]:
                       reasons.setdefault(r["rule"], [])
                       if r["reason"] not in reasons[r["rule"]]:
                           reasons[r["rule"]].append(r["reason"])
               print("### " + backend + "\n")
-              print("| rule | " + " | ".join(labels) + " | not-applicable reasons |")
+              print("| rule | " + " | ".join(labels) + " | reasons (not-applicable / unrepresentable) |")
               print("|---|" + "---|" * (len(labels) + 1))
               for rule in sorted(counts, key=natural):
                   note = "; ".join(cell(x) for x in reasons.get(rule, []))
