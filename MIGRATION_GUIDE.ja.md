@@ -1,6 +1,6 @@
 # Scala 1.xの公開操作と保存データの移行
 
-Scalaの成果物は5.0.0で、Java `5.0.0` に依存します。[共通契約 v5](https://github.com/j5ik2o/event-store-adapter/blob/main/docs/spec/README.md)に従います。メジャーの番号 5 は、共通契約の版と同じです。配布データ1.0.0とDynamoDBの`layout_version=1`は別の番号です。
+Scalaの成果物は5.0.1で、Java `5.0.1` に依存します。[共通契約 v5](https://github.com/j5ik2o/event-store-adapter/blob/main/docs/spec/README.md)に従います。メジャーの番号 5 は、共通契約の版と同じです。配布データ1.0.0とDynamoDBの`layout_version=1`は別の番号です。
 
 ## 公開操作の変更
 

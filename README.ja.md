@@ -10,10 +10,10 @@ JavaのMemory・DynamoDBイベントストアを包むScalaライブラリです
 
 ## 導入
 
-Scala 2.13.18・3.6.4で構築し、`io.github.j5ik2o:event-store-adapter-java:5.0.0`に依存します。Maven Central に公開しています。旧成果物の公開操作は旧契約です。[共通契約 v5](https://github.com/j5ik2o/event-store-adapter/blob/main/docs/spec/README.md)に従います。メジャーの番号 5 は、共通契約の版と同じです。
+Scala 2.13.18・3.6.4で構築し、`io.github.j5ik2o:event-store-adapter-java:5.0.1`に依存します。Maven Central に公開しています。旧成果物の公開操作は旧契約です。[共通契約 v5](https://github.com/j5ik2o/event-store-adapter/blob/main/docs/spec/README.md)に従います。メジャーの番号 5 は、共通契約の版と同じです。
 
 ```scala
-val scalaAdapterVersion = "5.0.0"
+val scalaAdapterVersion = "5.0.1"
 libraryDependencies += "io.github.j5ik2o" %% "event-store-adapter-scala" % scalaAdapterVersion
 ```
 
@@ -133,6 +133,9 @@ val asyncCreation = EventStoreAsync.ofDynamoDB(asyncClient, tables, AccountExamp
 確定後の保持失敗は書込み成功を変えません。ログと`retentionFailureListener`で元原因を知らせます。保存、ロック、保持、再試行はJavaが所有し、Scalaは結果とFutureの包みを変換します。
 
 失敗はJavaの例外型、`category()`、元原因、診断を保持します。5分類は`OptimisticLockException`、`ContractViolationException`、`SerializationException`、`ConfigurationException`、`StorageException`です。契約違反は`rule()`と`seqNr()`を持ちます。メッセージから分類を推測せず、失敗値を調べます。非同期Java操作を呼ぶ時点の同期例外も、失敗したScalaのFutureで返します。
+
+メモリの保存先は単一プロセスのメモリだけを使います。ファイルへの保存、再起動後の回復、プロセス間の共有はしません。DynamoDB では、3 つの表は同じリージョンに置き、書き込みもそのリージョンからだけ行ってください。グローバルテーブル（複数リージョンのレプリカ）は範囲外です。
+
 
 ## 移行と検証
 
