@@ -77,6 +77,55 @@ jobs:
       - uses: sbt/setup-sbt@v1
       - name: sbt test
         run: sbt -v ++${{ matrix.scala }} test
+      - name: Upload conformance report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: conformance-report-jdk${{ matrix.jdk }}-scala${{ matrix.scala }}
+          path: |
+            target/reports/${{ matrix.scala }}/conformance/report.json
+            target/reports/${{ matrix.scala }}/conformance/summary.md
+          if-no-files-found: error
+      - name: Summarize conformance by rule
+        if: ${{ !cancelled() }}
+        env:
+          REPORT: target/reports/${{ matrix.scala }}/conformance/report.json
+          SUMMARY_TITLE: Conformance by rule (JDK ${{ matrix.jdk }} / Scala ${{ matrix.scala }})
+        run: |
+          python3 - "$REPORT" >> "$GITHUB_STEP_SUMMARY" <<'PY'
+          import json, os, re, sys
+
+          with open(sys.argv[1], encoding="utf-8") as f:
+              report = json.load(f)
+
+          def natural(rule):
+              return [int(p) if p.isdigit() else p for p in re.split(r"(\d+)", rule)]
+
+          def cell(text):
+              return text.replace("|", "\\|").replace("\n", " ")
+
+          print("## " + os.environ["SUMMARY_TITLE"] + "\n")
+          for backend, statuses in report["backends"].items():
+              labels = list(statuses.keys())
+              counts = {}
+              reasons = {}
+              for r in report["rules"]:
+                  if r["backend"] != backend:
+                      continue
+                  row = counts.setdefault(r["rule"], dict.fromkeys(labels, 0))
+                  row[r["status"]] += 1
+                  if r["status"] == "not-applicable" and r["reason"]:
+                      reasons.setdefault(r["rule"], [])
+                      if r["reason"] not in reasons[r["rule"]]:
+                          reasons[r["rule"]].append(r["reason"])
+              print("### " + backend + "\n")
+              print("| rule | " + " | ".join(labels) + " | not-applicable reasons |")
+              print("|---|" + "---|" * (len(labels) + 1))
+              for rule in sorted(counts, key=natural):
+                  note = "; ".join(cell(x) for x in reasons.get(rule, []))
+                  print("| " + rule + " | " + " | ".join(str(counts[rule][l]) for l in labels) + " | " + note + " |")
+              print()
+          PY
   ci-success:
     name: CI Success
     runs-on: ubuntu-latest

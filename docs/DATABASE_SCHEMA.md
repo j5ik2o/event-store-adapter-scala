@@ -1,6 +1,6 @@
 # DynamoDB schema
 
-This is the Java DynamoDB layout used by the Scala public factories and operations. The Java dependency is `2.0.0-SNAPSHOT`, the common contract is v4, and conformance data is 1.0.0. The stored `layout_version` is **1**, a separate storage-layout number.
+This is the Java DynamoDB layout used by the Scala public factories and operations. The Java dependency is `2.0.0-SNAPSHOT`, the [common contract v4](https://github.com/j5ik2o/event-store-adapter/blob/main/docs/spec/README.md) is the specification version, and conformance data is 1.0.0. The stored `layout_version` is **1**, a separate storage-layout number.
 
 ## Provisioning
 
