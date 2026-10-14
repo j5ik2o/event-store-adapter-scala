@@ -34,7 +34,9 @@ final class DynamoDbCaseRunner {
           "dynamodb-retention-ttl-once",
           "dynamodb-retention-ttl-stale-marked",
           "dynamodb-retention-failure-ttl",
-          "dynamodb-written-item-shapes");
+          "dynamodb-written-item-shapes",
+          "dynamodb-single-aggregate-delete",
+          "dynamodb-single-aggregate-ttl");
 
   static final Set<String> SNAPSHOT_CASE_IDS =
       Set.of(

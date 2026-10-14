@@ -93,7 +93,10 @@ class ConformanceRunnerTest {
             }));
     List<DynamicNode> caseTests = new ArrayList<>();
     for (CaseResult r : results) {
-      if (r.status() == ConformanceStatus.NOT_APPLICABLE) {
+      boolean notRequiredUnrepresentable =
+          r.status() == ConformanceStatus.UNREPRESENTABLE
+              && !required.get(r.backend()).contains(r.caseId());
+      if (r.status() == ConformanceStatus.NOT_APPLICABLE || notRequiredUnrepresentable) {
         if (r.reason() == null || r.reason().isEmpty()) fail("An exclusion requires a reason");
         continue;
       }

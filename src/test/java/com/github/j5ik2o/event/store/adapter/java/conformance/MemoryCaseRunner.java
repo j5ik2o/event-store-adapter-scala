@@ -16,6 +16,7 @@ final class MemoryCaseRunner {
 
   static boolean supports(ConformanceCase c) {
     return c.file().startsWith("scenarios/core/")
+        || c.file().startsWith("memory/")
         || c.operation().map("validateOccurredAt"::equals).orElse(false);
   }
 
