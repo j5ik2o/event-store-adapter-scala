@@ -62,7 +62,8 @@ final class ApiSurfaceChecker(surface: JsonNode, mapping: JsonNode, overrides: M
           lookup(className) match {
             case None => Seq(s"$name: class $className not found")
             case Some(clazz) if entry.has("accessors") => checkAccessors(name, t, entry.path("accessors"), clazz)
-            case Some(_) => Seq.empty
+            case Some(_) if entry.has("checked_by") => Seq.empty
+            case Some(_) => Seq(s"$name: no accessors or checked_by in scala.json")
           }
       }
     }
@@ -169,8 +170,11 @@ final class ApiSurfaceChecker(surface: JsonNode, mapping: JsonNode, overrides: M
 
   private def checkErrorCategories(): Seq[String] =
     strings(surface.path("error_categories").path("names")).flatMap { name =>
-      if (text(mapping.path("error_categories").path("names").path(name)).isDefined) Seq.empty
-      else Seq(s"error_categories.$name: no mapping in scala.json")
+      text(mapping.path("error_categories").path("names").path(name)) match {
+        case None => Seq(s"error_categories.$name: no mapping in scala.json")
+        case Some(className) if lookup(className).isEmpty => Seq(s"error_categories.$name: class $className not found")
+        case Some(_) => Seq.empty
+      }
     }
 
   private def matches(expr: Expr, actual: Type): Boolean = expr match {

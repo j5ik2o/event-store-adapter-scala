@@ -19,6 +19,26 @@ final class ApiSurfaceNegativeSpec extends AnyFreeSpec {
         "event_store: scala.json has no store wrapped in scala.concurrent.Future"))
   }
 
+  "a mapping without the accessors of snapshot_read is reported" in {
+    val mapping = ApiSurfaceFiles.read(ApiSurfaceFiles.mappingPath).deepCopy[ObjectNode]()
+    mapping.path("types").path("snapshot_read").asInstanceOf[ObjectNode].remove("accessors")
+    val surface = ApiSurfaceFiles.read(ApiSurfaceFiles.surfacePath)
+    assert(
+      new ApiSurfaceChecker(surface, mapping).check() == Seq("snapshot_read: no accessors or checked_by in scala.json"))
+  }
+
+  "an exception class that does not exist is reported" in {
+    val mapping = ApiSurfaceFiles.read(ApiSurfaceFiles.mappingPath).deepCopy[ObjectNode]()
+    mapping
+      .path("error_categories")
+      .path("names")
+      .asInstanceOf[ObjectNode]
+      .put("storage", "com.github.j5ik2o.event.store.adapter.java.core.NoSuchStorageException")
+    val surface = ApiSurfaceFiles.read(ApiSurfaceFiles.surfacePath)
+    assert(new ApiSurfaceChecker(surface, mapping).check() == Seq(
+      "error_categories.storage: class com.github.j5ik2o.event.store.adapter.java.core.NoSuchStorageException not found"))
+  }
+
   "a shifted definition is reported, and nothing unrelated" - {
     "getEventsByIdSinceSeqNr returning Seq[P]" in
       assert(
