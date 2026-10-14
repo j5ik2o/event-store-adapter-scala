@@ -70,4 +70,9 @@ final class ConformanceCase {
     JsonNode node = raw.path("representation").get("time_precision");
     return node == null || !node.isTextual() ? Optional.empty() : Optional.of(node.asText());
   }
+
+  /** store.change_feed（省略時は false）。変更フィードの提供を求める設定か。 */
+  boolean changeFeedRequested() {
+    return materialized.path("store").path("change_feed").asBoolean(false);
+  }
 }

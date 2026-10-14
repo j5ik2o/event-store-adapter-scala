@@ -60,8 +60,14 @@ public final class DynamoDbSnapshotRetentionFixture {
                 "requests",
                 "request_count",
                 "minimum_request_count",
-                "no_requests_in_phases")
+                "no_requests_in_phases",
+                "request_scope")
             .contains(field)) return "未接続の観測: " + field;
+      }
+      if (step.path("observe").has("request_scope")) {
+        JsonNode scope = step.at("/observe/request_scope");
+        if (!fields(scope).equals(Set.of("apis", "aid"))
+            || !scope.path("aid").asText().equals("aggregate_id")) return "未接続の要求範囲観測";
       }
       if (step.path("observe").has("history")
           && !fields(step.at("/observe/history")).equals(Set.of("active", "marked", "absent")))
@@ -363,6 +369,9 @@ public final class DynamoDbSnapshotRetentionFixture {
       ArrayNode notifications = DynamoDbJson.mapper().createArrayNode();
       scene.failures.forEach(failure -> notifications.add("retention-failure"));
       assertEquals(expected.path("notifications"), notifications);
+    }
+    if (expected.has("request_scope")) {
+      DynamoDbRequestScope.check(expected.path("request_scope"), id.asString(), requests);
     }
     ArrayNode observedItems = scene.last().putArray("observed_items");
     Map<String, AttributeValue> bindings = new LinkedHashMap<>();

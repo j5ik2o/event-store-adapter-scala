@@ -15,6 +15,7 @@ final class ConformanceSupportSpec extends AnyFreeSpec {
       .selectors(
         selectClass("com.github.j5ik2o.event.store.adapter.java.conformance.MemoryCaseRunnerBoundaryTest"),
         selectClass("com.github.j5ik2o.event.store.adapter.java.dynamodbtest.FaultTransportTest"),
+        selectClass("com.github.j5ik2o.event.store.adapter.java.dynamodbtest.DynamoDbRequestScopeTest"),
       )
       .build()
     LauncherFactory.create().execute(request, listener)

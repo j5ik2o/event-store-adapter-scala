@@ -15,6 +15,9 @@ final class CaseClassifier {
   static final String REASON_LAYOUT = "DynamoDB の配置の照合であり、メモリに該当しない（設計文書 5.4）";
   static final String REASON_MILLISECONDS =
       "標準時刻型 Instant はナノ秒を表せるため、milliseconds のケースは対象外（設計文書 5.2）";
+  static final String REASON_CHANGE_FEED =
+      "公開設定（Scala の ofMemory・ofDynamoDB が受け取る MemoryStorage・DynamoDbTableConfig・EventStoreConfig）に"
+          + "変更フィードを求める項目がなく、change_feed=true を表せない";
   static final String REASON_NOT_EXECUTED = "この分類経路では保存先の公開操作を実行していない（設計文書 5.3）";
 
   private CaseClassifier() {}
@@ -38,6 +41,10 @@ final class CaseClassifier {
     }
     if (c.backends().map(names -> !names.contains(backend.dataName())).orElse(false)) {
       return Optional.of(result(c, backend, ConformanceStatus.NOT_APPLICABLE, REASON_BACKEND));
+    }
+    if (c.changeFeedRequested()) {
+      return Optional.of(
+          result(c, backend, ConformanceStatus.UNREPRESENTABLE, REASON_CHANGE_FEED));
     }
     if ("layout".equals(c.format()) && backend == Backend.MEMORY) {
       return Optional.of(result(c, backend, ConformanceStatus.NOT_APPLICABLE, REASON_LAYOUT));

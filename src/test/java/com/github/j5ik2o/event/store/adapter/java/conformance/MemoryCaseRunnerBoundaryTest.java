@@ -69,7 +69,7 @@ class MemoryCaseRunnerBoundaryTest {
     assertEquals(ConformanceStatus.PASSED, success.status());
     assertEquals("0", success.actual().at("/sync/value").asText());
     assertEquals("0", success.actual().at("/async/value").asText());
-    ConformanceReport report = new ConformanceReport("1.0.0",
+    ConformanceReport report = new ConformanceReport("1.1.0",
         ManifestVerifier.verify(Path.of("conformance")), "test", null,
         List.of(failure, success), ConformanceJson.mapper().createArrayNode());
     report.write(directory);
@@ -83,6 +83,71 @@ class MemoryCaseRunnerBoundaryTest {
     assertEquals("failed", saved.at("/rules/0/status").asText());
     assertEquals("passed", saved.at("/rules/1/status").asText());
     assertTrue(Files.readString(directory.resolve("summary.md")).contains("| memory | 1 | 1 |"));
+  }
+
+  @Test
+  void memoryTtlCaseSucceedsWhenCreationFailsAsConfiguration() throws Exception {
+    ConformanceCase ttl = dataCase("memory-ttl-unsupported");
+    CaseResult result = CaseClassifier.classify(ttl, Backend.MEMORY);
+    assertEquals(ConformanceStatus.PASSED, result.status(), String.valueOf(result.reason()));
+    assertTrue(CaseClassifier.exclusion(ttl, Backend.MEMORY).isEmpty());
+  }
+
+  @Test
+  void memoryTtlCaseFailsWhenTheExpectedCategoryIsNotConfiguration() throws Exception {
+    ConformanceCase ttl = dataCase("memory-ttl-unsupported");
+    ObjectNode altered = ttl.materialized().deepCopy();
+    ((ObjectNode) altered.at("/initialization/expect/error")).put("category", "storage");
+    ConformanceCase wrong =
+        new ConformanceCase(ttl.id(), ttl.file(), ttl.format(), ttl.rules(), altered, altered);
+    assertEquals(ConformanceStatus.FAILED, CaseClassifier.classify(wrong, Backend.MEMORY).status());
+  }
+
+  @Test
+  void changeFeedCaseIsUnrepresentableWithAReasonAndNeverExecuted() throws Exception {
+    ConformanceCase feed = dataCase("memory-change-feed-unsupported");
+    CaseResult result = CaseClassifier.classify(feed, Backend.MEMORY);
+    assertEquals(ConformanceStatus.UNREPRESENTABLE, result.status());
+    assertNotNull(result.reason());
+    assertFalse(result.reason().isBlank());
+  }
+
+  @Test
+  void changeFeedRequestIsUnrepresentableForAnyCaseThatAsksForIt() {
+    ConformanceCase requested = storeCase("local-change-feed", true);
+    CaseResult result =
+        CaseClassifier.exclusion(requested, Backend.MEMORY).orElseThrow(AssertionError::new);
+    assertEquals(ConformanceStatus.UNREPRESENTABLE, result.status());
+    assertFalse(result.reason().isBlank());
+    assertTrue(CaseClassifier.exclusion(storeCase("local-no-change-feed", false), Backend.MEMORY).isEmpty());
+    assertTrue(CaseClassifier.exclusion(storeCase("local-omitted", null), Backend.MEMORY).isEmpty());
+  }
+
+  @Test
+  void anUnrepresentableResultStillViolatesARequirementThatListsTheCase() {
+    CaseResult unrepresentable =
+        CaseClassifier.exclusion(storeCase("local-change-feed", true), Backend.MEMORY)
+            .orElseThrow(AssertionError::new);
+    assertTrue(
+        CaseClassifier.violatesRequirement(
+            unrepresentable, java.util.Map.of(Backend.MEMORY, java.util.Set.of("local-change-feed"))));
+    assertFalse(
+        CaseClassifier.violatesRequirement(
+            unrepresentable, java.util.Map.of(Backend.MEMORY, java.util.Set.<String>of())));
+  }
+
+  private static ConformanceCase dataCase(String id) throws Exception {
+    return ConformanceDataLoader.load(Path.of("conformance")).cases().stream()
+        .filter(c -> c.id().equals(id))
+        .findFirst()
+        .orElseThrow(() -> new AssertionError("missing conformance case " + id));
+  }
+
+  private static ConformanceCase storeCase(String id, Boolean changeFeed) {
+    ObjectNode raw = ConformanceJson.mapper().createObjectNode();
+    ObjectNode store = raw.putObject("store");
+    if (changeFeed != null) store.put("change_feed", changeFeed.booleanValue());
+    return new ConformanceCase(id, "memory/local.json", "scenario", List.of("MEM-12"), raw, raw);
   }
 
   private static ConformanceCase timeCase(String id, String time) {
