@@ -1,5 +1,6 @@
 package com.github.j5ik2o.event.store.adapter.scala.apisurface
 
+import com.fasterxml.jackson.databind.node.{ArrayNode, ObjectNode}
 import org.scalatest.freespec.AnyFreeSpec
 
 final class ApiSurfaceNegativeSpec extends AnyFreeSpec {
@@ -8,6 +9,15 @@ final class ApiSurfaceNegativeSpec extends AnyFreeSpec {
 
   private def deviations(original: String, fixture: String): Seq[String] =
     ApiSurfaceChecker.load(Map(s"$base.$original" -> s"$fixtures.$fixture.$original")).check()
+
+  "a mapping without the asynchronous store is reported" in {
+    val mapping = ApiSurfaceFiles.read(ApiSurfaceFiles.mappingPath).deepCopy[ObjectNode]()
+    mapping.get("stores").asInstanceOf[ArrayNode].remove(1)
+    val surface = ApiSurfaceFiles.read(ApiSurfaceFiles.surfacePath)
+    assert(
+      new ApiSurfaceChecker(surface, mapping).check() == Seq(
+        "event_store: scala.json has no store wrapped in scala.concurrent.Future"))
+  }
 
   "a shifted definition is reported, and nothing unrelated" - {
     "getEventsByIdSinceSeqNr returning Seq[P]" in

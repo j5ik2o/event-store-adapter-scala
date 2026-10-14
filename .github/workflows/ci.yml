@@ -15,6 +15,7 @@ on:
       - '.github/tests/**'
       - 'conformance/**'
       - 'tools/conformance/**'
+      - 'api-surface/**'
   pull_request:
     branches:
       - main

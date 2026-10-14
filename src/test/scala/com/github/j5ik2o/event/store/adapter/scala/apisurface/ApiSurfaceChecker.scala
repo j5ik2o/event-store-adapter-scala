@@ -90,7 +90,11 @@ final class ApiSurfaceChecker(surface: JsonNode, mapping: JsonNode, overrides: M
   private def checkStores(): Seq[String] = {
     val store = surface.path("store")
     val storeName = store.path("name").asText()
-    mapping.path("stores").asScala.toSeq.flatMap { entry =>
+    val entries = mapping.path("stores").asScala.toSeq
+    val missing = ApiSurfaceChecker.requiredWraps.filterNot(w => entries.exists(_.path("wrap").asText() == w)).map { w =>
+      s"$storeName: scala.json has no store wrapped in $w"
+    }
+    missing ++ entries.flatMap { entry =>
       val traitName = entry.path("trait").asText()
       lookup(traitName) match {
         case None => Seq(s"$storeName: class $traitName not found")
@@ -147,9 +151,10 @@ final class ApiSurfaceChecker(surface: JsonNode, mapping: JsonNode, overrides: M
 
   private def checkTypeParameters(label: String, clazz: Class[_], wanted: Seq[String]): Seq[String] = {
     val declared = clazz.getTypeParameters.toSeq
-    if (declared.map(_.getName) != wanted)
+    val wantedNames = wanted.map(n => typeParameters.getOrElse(n, n))
+    if (declared.map(_.getName) != wantedNames)
       Seq(
-        s"$label: ${clazz.getSimpleName} has type parameters ${declared.map(_.getName).mkString("[", ", ", "]")}, want ${wanted
+        s"$label: ${clazz.getSimpleName} has type parameters ${declared.map(_.getName).mkString("[", ", ", "]")}, want ${wantedNames
             .mkString("[", ", ", "]")}")
     else
       declared.flatMap { p =>
@@ -244,6 +249,10 @@ final class ApiSurfaceChecker(surface: JsonNode, mapping: JsonNode, overrides: M
 }
 
 object ApiSurfaceChecker {
+
+  /** The synchronous store wraps its results in Try, and the asynchronous one in Future. */
+  val requiredWraps: Seq[String] = Seq("scala.util.Try", "scala.concurrent.Future")
+
   def load(overrides: Map[String, String] = Map.empty): ApiSurfaceChecker =
     new ApiSurfaceChecker(
       ApiSurfaceFiles.read(ApiSurfaceFiles.surfacePath),
