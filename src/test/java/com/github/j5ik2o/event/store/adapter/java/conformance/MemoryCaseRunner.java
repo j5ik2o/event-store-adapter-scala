@@ -21,7 +21,12 @@ final class MemoryCaseRunner {
   }
 
   static CaseResult run(ConformanceCase c) {
-    return run(c, asynchronous -> runPath(c, asynchronous));
+    return run(c, ConformanceMemoryOperations.MemoryStoreOpener.PUBLIC);
+  }
+
+  static CaseResult run(
+      ConformanceCase c, ConformanceMemoryOperations.MemoryStoreOpener opener) {
+    return run(c, asynchronous -> runPath(c, asynchronous, opener));
   }
 
   static CaseResult run(ConformanceCase c, Function<Boolean, CaseResult> executePath) {
@@ -47,7 +52,8 @@ final class MemoryCaseRunner {
     }
   }
 
-  private static CaseResult runPath(ConformanceCase c, boolean asynchronous) {
+  private static CaseResult runPath(
+      ConformanceCase c, boolean asynchronous, ConformanceMemoryOperations.MemoryStoreOpener opener) {
     JsonNode input = c.materialized();
     List<String> problems = new ArrayList<>();
     Integer failedOperation = null;
@@ -59,7 +65,7 @@ final class MemoryCaseRunner {
       expected.remove("precision_policy");
       compare(expected, actual, problems, "時刻");
     } else {
-      actual = ConformanceMemoryOperations.executeScenario(input, asynchronous);
+      actual = ConformanceMemoryOperations.executeScenario(input, asynchronous, opener);
       if (actual.has("unsupported")) {
         return result(
             c, ConformanceStatus.UNVERIFIED, actual.path("unsupported").asText(), null, actual);
