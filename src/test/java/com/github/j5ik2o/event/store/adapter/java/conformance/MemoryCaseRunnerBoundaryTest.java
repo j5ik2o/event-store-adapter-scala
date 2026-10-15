@@ -4,10 +4,19 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.github.j5ik2o.event.store.adapter.java.core.AggregateId;
+import com.github.j5ik2o.event.store.adapter.java.core.EventEnvelope;
+import com.github.j5ik2o.event.store.adapter.java.core.EventStore;
+import com.github.j5ik2o.event.store.adapter.java.core.SnapshotEnvelope;
+import com.github.j5ik2o.event.store.adapter.java.core.SnapshotReadResult;
+import com.github.j5ik2o.event.store.adapter.java.memory.ConformanceMemoryOperations.MemoryStoreOpener;
+import com.github.j5ik2o.event.store.adapter.java.memory.MemoryStorage;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -69,7 +78,7 @@ class MemoryCaseRunnerBoundaryTest {
     assertEquals(ConformanceStatus.PASSED, success.status());
     assertEquals("0", success.actual().at("/sync/value").asText());
     assertEquals("0", success.actual().at("/async/value").asText());
-    ConformanceReport report = new ConformanceReport("1.1.0",
+    ConformanceReport report = new ConformanceReport("1.2.0",
         ManifestVerifier.verify(Path.of("conformance")), "test", null,
         List.of(failure, success), ConformanceJson.mapper().createArrayNode());
     report.write(directory);
@@ -134,6 +143,117 @@ class MemoryCaseRunnerBoundaryTest {
     assertFalse(
         CaseClassifier.violatesRequirement(
             unrepresentable, java.util.Map.of(Backend.MEMORY, java.util.Set.<String>of())));
+  }
+
+  @Test
+  void independentSecondStoreSceneSucceedsThroughThePublicApi() throws Exception {
+    assertPassed(dataCase("memory-store-new-independent"));
+  }
+
+  @Test
+  void sharedSecondStoreSceneSucceedsThroughThePublicApi() throws Exception {
+    assertPassed(dataCase("memory-store-shared"));
+  }
+
+  @Test
+  void writtenPayloadMutationSceneSucceedsThroughThePublicApi() throws Exception {
+    assertPassed(dataCase("memory-payload-written-mutation"));
+  }
+
+  @Test
+  void readPayloadMutationSceneSucceedsThroughThePublicApi() throws Exception {
+    assertPassed(dataCase("memory-payload-read-mutation"));
+  }
+
+  @Test
+  void newStorageThatSharesRecordsIsRejectedInTheIndependentScene() throws Exception {
+    ConformanceCase scene = dataCase("memory-store-new-independent");
+    AtomicReference<MemoryStorage> first = new AtomicReference<>();
+    MemoryStoreOpener sharingEverything =
+        (name, storage, config, asynchronous) -> {
+          first.compareAndSet(null, storage);
+          return MemoryStoreOpener.PUBLIC.open(name, first.get(), config, asynchronous);
+        };
+    CaseResult result = MemoryCaseRunner.run(scene, sharingEverything);
+    assertEquals(ConformanceStatus.FAILED, result.status());
+    assertEquals(3, result.failedOperation());
+  }
+
+  @Test
+  void storeThatReturnsTheWrittenPayloadInstanceIsRejectedInTheWrittenMutationScene()
+      throws Exception {
+    CaseResult result =
+        MemoryCaseRunner.run(
+            dataCase("memory-payload-written-mutation"), (n, s, c, a) -> new AliasingStore());
+    assertEquals(ConformanceStatus.FAILED, result.status());
+    assertEquals(3, result.failedOperation());
+  }
+
+  @Test
+  void storeThatReturnsTheStoredPayloadInstanceIsRejectedInTheReadMutationScene() throws Exception {
+    CaseResult result =
+        MemoryCaseRunner.run(
+            dataCase("memory-payload-read-mutation"), (n, s, c, a) -> new AliasingStore());
+    assertEquals(ConformanceStatus.FAILED, result.status());
+    assertEquals(4, result.failedOperation());
+  }
+
+  @Test
+  void unresolvablePointerFailsTheCaseInsteadOfSucceeding() throws Exception {
+    ConformanceCase scene = dataCase("memory-payload-written-mutation");
+    for (String pointer : List.of("", "/items/5/qty", "/items/x/qty", "/missing/qty")) {
+      ObjectNode altered = scene.materialized().deepCopy();
+      ((ObjectNode) altered.at("/steps/1/arguments")).put("pointer", pointer);
+      ConformanceCase wrong =
+          new ConformanceCase(scene.id(), scene.file(), scene.format(), scene.rules(), altered, altered);
+      CaseResult result = MemoryCaseRunner.run(wrong);
+      assertEquals(ConformanceStatus.FAILED, result.status(), pointer);
+      assertEquals("java.lang.IllegalArgumentException",
+          result.actual().at("/sync/exception").asText(), pointer);
+      assertEquals("java.lang.IllegalArgumentException",
+          result.actual().at("/async/exception").asText(), pointer);
+    }
+  }
+
+  private static void assertPassed(ConformanceCase scene) {
+    CaseResult result = CaseClassifier.classify(scene, Backend.MEMORY);
+    assertEquals(ConformanceStatus.PASSED, result.status(), String.valueOf(result.reason()));
+  }
+
+  /** Keeps the caller's envelope as is and hands the same instance back, without copying. */
+  private static final class AliasingStore implements EventStore<JsonNode, JsonNode> {
+    private final List<EventEnvelope<JsonNode>> events = new ArrayList<>();
+
+    @Override
+    public void persistEvent(EventEnvelope<JsonNode> event) {
+      events.add(event);
+    }
+
+    @Override
+    public void persistEventAndSnapshot(
+        EventEnvelope<JsonNode> event, SnapshotEnvelope<JsonNode> snapshot) {
+      events.add(event);
+    }
+
+    @Override
+    public Optional<SnapshotReadResult<JsonNode>> getLatestSnapshotById(AggregateId id) {
+      return events.stream()
+          .filter(e -> e.aggregateId().equals(id))
+          .mapToLong(EventEnvelope::seqNr)
+          .max()
+          .stream()
+          .mapToObj(SnapshotReadResult::<JsonNode>withoutSnapshot)
+          .findFirst();
+    }
+
+    @Override
+    public List<EventEnvelope<JsonNode>> getEventsByIdSinceSeqNr(AggregateId id, long seqNr) {
+      List<EventEnvelope<JsonNode>> found = new ArrayList<>();
+      for (EventEnvelope<JsonNode> e : events) {
+        if (e.aggregateId().equals(id) && e.seqNr() >= seqNr) found.add(e);
+      }
+      return found;
+    }
   }
 
   private static ConformanceCase dataCase(String id) throws Exception {
