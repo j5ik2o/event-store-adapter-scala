@@ -12,6 +12,8 @@ on:
       - 'project/build.properties'
       - '.github/workflows/ci.yml'
       - '.github/workflows/bump-version.yml'
+      - '.github/create-release-note-header.py'
+      - '.github/create-release-note-body.py'
       - '.github/tests/**'
       - 'conformance/**'
       - 'tools/conformance/**'
