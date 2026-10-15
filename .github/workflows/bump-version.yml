@@ -106,6 +106,17 @@ jobs:
           force_bump: ${{ steps.changes.outputs.bump }}
           custom_tag: ${{ inputs.version }}
         if: steps.changes.outputs.count > 0
+      - name: Create release notes
+        env:
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          PREVIOUS_TAG: ${{ steps.tag_version.outputs.previous_tag }}
+          NEW_TAG: ${{ steps.tag_version.outputs.new_tag }}
+        run: |
+          python3 .github/create-release-note-header.py "$SERVER_URL" "$REPOSITORY" "$PREVIOUS_TAG" "$NEW_TAG" > changelog.txt
+          git log "$PREVIOUS_TAG..HEAD" --no-merges --format='%H%x1f%s%x1f%b%x1e' \
+            | python3 .github/create-release-note-body.py "$SERVER_URL" "$REPOSITORY" >> changelog.txt
+        if: steps.changes.outputs.count > 0
       - name: Create a GitHub release
         uses: actions/create-release@v1
         env:
@@ -113,5 +124,5 @@ jobs:
         with:
           tag_name: ${{ steps.tag_version.outputs.new_tag }}
           release_name: Release ${{ steps.tag_version.outputs.new_tag }}
-          body: ${{ steps.tag_version.outputs.changelog }}
+          body_path: changelog.txt
         if: steps.changes.outputs.count > 0
