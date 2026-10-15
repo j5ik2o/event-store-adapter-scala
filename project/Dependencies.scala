@@ -25,7 +25,7 @@ object Dependencies {
     val testcontainers = "org.testcontainers" % "testcontainers" % "2.0.5"
     val jsonSchema = "com.networknt" % "json-schema-validator" % "2.0.8"
     val apacheClient = "software.amazon.awssdk" % "apache5-client" % "2.55.14"
-    val nettyClient = "software.amazon.awssdk" % "netty-nio-client" % "2.55.15"
+    val nettyClient = "software.amazon.awssdk" % "netty-nio-client" % "2.56.0"
   }
 
   object logback {
