@@ -1,5 +1,6 @@
 package com.github.j5ik2o.event.store.adapter.java.conformance;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -19,6 +20,13 @@ final class CaseClassifier {
       "公開設定（Scala の ofMemory・ofDynamoDB が受け取る MemoryStorage・DynamoDbTableConfig・EventStoreConfig）に"
           + "変更フィードを求める項目がなく、change_feed=true を表せない";
   static final String REASON_NOT_EXECUTED = "この分類経路では保存先の公開操作を実行していない（設計文書 5.3）";
+  static final String REASON_UNPROVIDED_BACKEND =
+      "この言語はその保存先を提供しない（SQLite・Spanner・Bigtable の保存先は未提供）";
+
+  private static final Set<String> PROVIDED_BACKENDS =
+      Arrays.stream(Backend.values()).map(Backend::dataName).collect(Collectors.toSet());
+  private static final Set<String> UNPROVIDED_BACKEND_OPERATIONS =
+      Set.of("encodeBigtableEventEnvelope", "encodeBigtableSnapshotEnvelope", "decodeBigtableEnvelope");
 
   private CaseClassifier() {}
 
@@ -39,6 +47,10 @@ final class CaseClassifier {
     if (c.operation().map("fnv1a64"::equals).orElse(false)) {
       return Optional.of(result(c, backend, ConformanceStatus.NOT_APPLICABLE, REASON_HASH));
     }
+    if (targetsOnlyUnprovidedBackends(c)) {
+      return Optional.of(
+          result(c, backend, ConformanceStatus.NOT_APPLICABLE, REASON_UNPROVIDED_BACKEND));
+    }
     if (c.backends().map(names -> !names.contains(backend.dataName())).orElse(false)) {
       return Optional.of(result(c, backend, ConformanceStatus.NOT_APPLICABLE, REASON_BACKEND));
     }
@@ -53,6 +65,14 @@ final class CaseClassifier {
       return Optional.of(result(c, backend, ConformanceStatus.NOT_APPLICABLE, REASON_MILLISECONDS));
     }
     return Optional.empty();
+  }
+
+  /** backends にこの言語の保存先を 1 つも含まない、または未提供の保存先の値の表の操作か。中身は解釈しない。 */
+  private static boolean targetsOnlyUnprovidedBackends(ConformanceCase c) {
+    return c.operation().map(UNPROVIDED_BACKEND_OPERATIONS::contains).orElse(false)
+        || c.backends()
+            .map(names -> names.stream().noneMatch(PROVIDED_BACKENDS::contains))
+            .orElse(false);
   }
 
   /** その保存先の一覧にあるのに成功していないケースか。判定はケース ID と保存先の組で行う。 */

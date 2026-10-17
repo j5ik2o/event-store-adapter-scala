@@ -14,7 +14,10 @@ import com.github.j5ik2o.event.store.adapter.java.memory.MemoryStorage;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.IdentityHashMap;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -78,7 +81,7 @@ class MemoryCaseRunnerBoundaryTest {
     assertEquals(ConformanceStatus.PASSED, success.status());
     assertEquals("0", success.actual().at("/sync/value").asText());
     assertEquals("0", success.actual().at("/async/value").asText());
-    ConformanceReport report = new ConformanceReport("1.2.0",
+    ConformanceReport report = new ConformanceReport("1.3.0",
         ManifestVerifier.verify(Path.of("conformance")), "test", null,
         List.of(failure, success), ConformanceJson.mapper().createArrayNode());
     report.write(directory);
@@ -215,6 +218,112 @@ class MemoryCaseRunnerBoundaryTest {
     }
   }
 
+  @Test
+  void sharedConfigurationSceneSucceedsThroughThePublicApi() throws Exception {
+    assertPassed(dataCase("memory-store-shared-configuration"));
+  }
+
+  @Test
+  void sharedStoreWithItsOwnDefaultConfigurationIsRejectedInTheSharedConfigurationScene()
+      throws Exception {
+    Map<MemoryStorage, SharedRecords> records = new IdentityHashMap<>();
+    MemoryStoreOpener opener =
+        (name, storage, config, asynchronous) ->
+            new DefaultConfigurationStore(records.computeIfAbsent(storage, k -> new SharedRecords()));
+    CaseResult result = MemoryCaseRunner.run(dataCase("memory-store-shared-configuration"), opener);
+    assertEquals(ConformanceStatus.FAILED, result.status());
+    assertEquals(2, result.failedOperation());
+    assertTrue(result.reason().contains("履歴の active が違う"), result.reason());
+    for (String path : List.of("sync", "async")) {
+      assertEquals("snapshot", result.actual().at("/" + path + "/steps/4/result").asText(), path);
+      assertEquals(3, result.actual().at("/" + path + "/steps/4/head_seq_nr").asInt(), path);
+    }
+  }
+
+  @Test
+  void unprovidedBackendCasesAreNotApplicableWithAReasonBeforeInterpretation() throws Exception {
+    List<ConformanceCase> targeted = new ArrayList<>();
+    for (ConformanceCase c : ConformanceDataLoader.load(Path.of("conformance")).cases()) {
+      String file = c.file();
+      if (file.startsWith("sqlite/") || file.startsWith("spanner/") || file.startsWith("bigtable/")
+          || file.startsWith("scenarios/stores/") || file.equals("values/bigtable-envelope.json")) {
+        targeted.add(c);
+      }
+    }
+    assertFalse(targeted.isEmpty());
+    for (ConformanceCase c : targeted) {
+      for (Backend backend : Backend.values()) {
+        CaseResult excluded =
+            CaseClassifier.exclusion(c, backend).orElseThrow(() -> new AssertionError(c.id()));
+        assertEquals(ConformanceStatus.NOT_APPLICABLE, excluded.status(), c.id());
+        assertEquals(CaseClassifier.REASON_UNPROVIDED_BACKEND, excluded.reason(), c.id());
+        CaseResult classified = CaseClassifier.classify(c, backend);
+        assertEquals(ConformanceStatus.NOT_APPLICABLE, classified.status(), c.id());
+        assertEquals(CaseClassifier.REASON_UNPROVIDED_BACKEND, classified.reason(), c.id());
+      }
+    }
+  }
+
+  @Test
+  void unknownOperationInAnApplicableMemoryCaseIsNotPassed() {
+    ConformanceCase applicable = lockCase("local-hold-write-lock", "memory");
+    assertEquals(ConformanceStatus.UNVERIFIED, CaseClassifier.classify(applicable, Backend.MEMORY).status());
+    ConformanceCase unprovided = lockCase("local-hold-write-lock-sqlite", "sqlite");
+    CaseResult excluded =
+        CaseClassifier.exclusion(unprovided, Backend.MEMORY).orElseThrow(AssertionError::new);
+    assertEquals(ConformanceStatus.NOT_APPLICABLE, excluded.status());
+    assertEquals(CaseClassifier.REASON_UNPROVIDED_BACKEND, excluded.reason());
+  }
+
+  @Test
+  void unknownValueOperationWithoutBackendsIsNotPassed() {
+    ObjectNode raw = ConformanceJson.mapper().createObjectNode().put("operation", "unknownOperation");
+    raw.putObject("input");
+    raw.putObject("expect");
+    ConformanceCase unknown =
+        new ConformanceCase("local-unknown-operation", "values/local-unknown.json", "values",
+            List.of("T-3"), raw, raw);
+    for (Backend backend : Backend.values()) {
+      assertEquals(ConformanceStatus.UNVERIFIED, CaseClassifier.classify(unknown, backend).status());
+    }
+  }
+
+  @Test
+  void unprovidedBackendRulesAreReportedAsNotApplicable() throws Exception {
+    List<CaseResult> results = new ArrayList<>();
+    for (ConformanceCase c : ConformanceDataLoader.load(Path.of("conformance")).cases()) {
+      for (Backend backend : Backend.values()) {
+        CaseClassifier.exclusion(c, backend).ifPresent(results::add);
+      }
+    }
+    ConformanceCase sharedConfiguration = dataCase("memory-store-shared-configuration");
+    results.add(CaseClassifier.classify(sharedConfiguration, Backend.MEMORY));
+    JsonNode rules =
+        new ConformanceReport("1.3.0", ManifestVerifier.verify(Path.of("conformance")), "test", null,
+                results, ConformanceJson.mapper().createArrayNode())
+            .toJson()
+            .path("rules");
+    Map<String, Integer> found = new HashMap<>();
+    boolean mem2HasSharedConfiguration = false;
+    for (JsonNode entry : rules) {
+      String rule = entry.path("rule").asText();
+      if (rule.matches("^(SQ|SPN|BT)-.*")) {
+        assertEquals("not-applicable", entry.path("status").asText(), rule);
+        assertEquals(CaseClassifier.REASON_UNPROVIDED_BACKEND, entry.path("reason").asText(), rule);
+        found.merge(rule.substring(0, rule.indexOf('-')), 1, Integer::sum);
+        if (rule.equals("BT-D6a")) found.merge(rule, 1, Integer::sum);
+      }
+      if (rule.equals("MEM-2")
+          && entry.path("case_id").asText().equals("memory-store-shared-configuration")) {
+        mem2HasSharedConfiguration = true;
+      }
+    }
+    for (String key : List.of("SQ", "SPN", "BT", "BT-D6a")) {
+      assertTrue(found.getOrDefault(key, 0) >= 1, key);
+    }
+    assertTrue(mem2HasSharedConfiguration);
+  }
+
   private static void assertPassed(ConformanceCase scene) {
     CaseResult result = CaseClassifier.classify(scene, Backend.MEMORY);
     assertEquals(ConformanceStatus.PASSED, result.status(), String.valueOf(result.reason()));
@@ -254,6 +363,69 @@ class MemoryCaseRunnerBoundaryTest {
       }
       return found;
     }
+  }
+
+  private static final class SharedRecords {
+    final List<EventEnvelope<JsonNode>> events = new ArrayList<>();
+    final Map<AggregateId, SnapshotEnvelope<JsonNode>> snapshots = new HashMap<>();
+  }
+
+  /**
+   * 記録は共有するが、保存先の設定を使わず自分の既定の設定（保持なし）を使う偽の保存先。
+   * 履歴は本物の保存先に書かないため、保持件数 1 の履歴が観測できない。
+   */
+  private static final class DefaultConfigurationStore implements EventStore<JsonNode, JsonNode> {
+    private final SharedRecords records;
+
+    DefaultConfigurationStore(SharedRecords records) {
+      this.records = records;
+    }
+
+    @Override
+    public void persistEvent(EventEnvelope<JsonNode> event) {
+      records.events.add(event);
+    }
+
+    @Override
+    public void persistEventAndSnapshot(
+        EventEnvelope<JsonNode> event, SnapshotEnvelope<JsonNode> snapshot) {
+      records.events.add(event);
+      records.snapshots.put(event.aggregateId(), snapshot);
+    }
+
+    @Override
+    public Optional<SnapshotReadResult<JsonNode>> getLatestSnapshotById(AggregateId id) {
+      return records.events.stream()
+          .filter(e -> e.aggregateId().equals(id))
+          .mapToLong(EventEnvelope::seqNr)
+          .max()
+          .stream()
+          .mapToObj(
+              head -> {
+                SnapshotEnvelope<JsonNode> snapshot = records.snapshots.get(id);
+                return snapshot == null
+                    ? SnapshotReadResult.<JsonNode>withoutSnapshot(head)
+                    : SnapshotReadResult.of(snapshot, head);
+              })
+          .findFirst();
+    }
+
+    @Override
+    public List<EventEnvelope<JsonNode>> getEventsByIdSinceSeqNr(AggregateId id, long seqNr) {
+      List<EventEnvelope<JsonNode>> found = new ArrayList<>();
+      for (EventEnvelope<JsonNode> e : records.events) {
+        if (e.aggregateId().equals(id) && e.seqNr() >= seqNr) found.add(e);
+      }
+      return found;
+    }
+  }
+
+  private static ConformanceCase lockCase(String id, String backend) {
+    ObjectNode raw = ConformanceJson.mapper().createObjectNode();
+    raw.putArray("backends").add(backend);
+    raw.putObject("store");
+    raw.putArray("steps").addObject().put("op", "holdWriteLock");
+    return new ConformanceCase(id, "memory/local.json", "scenario", List.of("MEM-2"), raw, raw);
   }
 
   private static ConformanceCase dataCase(String id) throws Exception {
