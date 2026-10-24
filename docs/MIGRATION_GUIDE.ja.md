@@ -4,7 +4,7 @@
 
 ## 概要
 
-この案内は、Scala 1.xの公開操作と保存データの移行を説明します。Scalaの成果物は5.0.1で、Java `5.0.1` に依存します。[共通契約 v5](https://github.com/j5ik2o/event-store-adapter/blob/main/docs/spec/README.md)に従います。メジャーの番号 5 は、共通契約の版と同じです。配布データ1.3.0とDynamoDBの`layout_version=1`は別の番号です。
+この案内は、Scala 1.xの公開操作と保存データの移行を説明します。Scalaの成果物は5.0.1で、Java `5.0.1` に依存します。[共通契約 v5](https://github.com/j5ik2o/event-store-adapter/blob/main/docs/spec/README.md)に従います。メジャーの番号 5 は、共通契約の版と同じです。適合テストデータ1.3.0とDynamoDBの`layout_version=1`は別の番号です。
 
 ## コードの変更
 
@@ -14,14 +14,14 @@
 |---|---|
 | `EventStore[AID,A,E]`、`EventStoreAsync[AID,A,E]` | `EventStore[P,A]`、`EventStoreAsync[P,A]` |
 | ストアを直接返す生成入口 | 同期生成は`Try`、非同期生成は`Future` |
-| ドメインが実装する`Aggregate`、`Event`、`AggregateId` | 任意の直列化可能なドメイン型、Javaの封筒、`AggregateId.of(typeName, value)` |
+| ドメインが実装する`Aggregate`、`Event`、`AggregateId` | Javaの`core.EventEnvelope`と`SnapshotEnvelope`に入れる、任意の直列化可能なドメイン型。`AggregateId.of(typeName, value)` |
 | `with...`設定と旧シリアライザ | 生成時の`EventStoreConfig`、`PayloadSerializer<T>`、保存先の保持方針 |
 | 2表、シャード数、キー解決器、ジャーナルの索引 | 3表とスナップショット履歴索引を指定する`DynamoDbTableConfig` |
 | `persistEvent(event, version)` | `persistEvent(eventEnvelope)` |
 | `persistEventAndSnapshot(event, aggregate)` | `persistEventAndSnapshot(eventEnvelope, snapshotEnvelope)` |
 | `getLatestSnapshotById(Class, id)` | 二段の不存在を返す`getLatestSnapshotById(id)` |
 | `getEventsByIdSinceSequenceNumber(Class, id, start)` | 全封筒を返す`getEventsByIdSinceSeqNr(id, start)` |
-| 旧読取・書込・復元例外 | Javaの`core`の5分類例外。復元失敗も`SerializationException` |
+| 旧読取・書込・逆直列化の例外 | Javaの`core`の5分類の例外。逆直列化の失敗も`SerializationException` |
 
 イベントと集約状態のシリアライザは生成時に決めます。直列化するのはドメイン内容だけです。集約識別子、番号、発生時刻、manifestは封筒に分けます。manifestはライブラリで解釈しません。型名と識別子の値は確認済みの対応を使い、旧文字列から推測しません。
 
