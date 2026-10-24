@@ -4,11 +4,13 @@
 [![Maven Central](https://maven-badges.herokuapp.com/maven-central/io.github.j5ik2o/event-store-adapter-scala_2.13/badge.svg)](https://maven-badges.herokuapp.com/maven-central/io.github.j5ik2o/event-store-adapter-scala_2.13)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
+## Overview
+
 Scala wrappers for the Java Memory and DynamoDB event stores. Synchronous factories and operations return `Try`; asynchronous factories and operations return `Future`. Domain payloads only need to be serializable; they implement no library trait.
 
 [日本語](README.ja.md)
 
-## Dependency
+## Installation
 
 The source is cross-built for Scala 2.13.18 and 3.6.4 and depends on `io.github.j5ik2o:event-store-adapter-java:5.0.1`. It is published to Maven Central. Older Scala artifacts expose the previous API. This library follows [common contract v5](https://github.com/j5ik2o/event-store-adapter/blob/main/docs/spec/README.md); its major version 5 matches the contract revision.
 
@@ -17,9 +19,9 @@ val scalaAdapterVersion = "5.0.1"
 libraryDependencies += "io.github.j5ik2o" %% "event-store-adapter-scala" % scalaAdapterVersion
 ```
 
-Java's `core` identifiers, envelopes, typed `PayloadSerializer<T>`, `EventStoreConfig`, `RetentionPolicy` and five exception classes are reused. Bind event and aggregate-state serializers at creation; reads take no `Class`. Serializers process payloads only, separately from envelope metadata.
+## Quick start
 
-## Save and restore
+### Save and restore
 
 This complete helper uses names as event payloads and aggregate state. It is compiled and executed by [AccountExampleSpec](src/test/scala/com/github/j5ik2o/event/store/adapter/scala/examples/AccountExampleSpec.scala) with both stores and both public factory forms. For arbitrary Scala case classes and dedicated serializers, see the [UserAccount example](src/test/scala/com/github/j5ik2o/event/store/adapter/scala/internal/UserAccount.scala).
 
@@ -91,7 +93,7 @@ val updated: Future[Option[String]] = for {
 } yield result // Some("Carol")
 ```
 
-Only stores given the same `MemoryStorage` share records, settings and locking. `ofMemory(config)` creates an isolated storage for each call, for both synchronous and asynchronous factories. Memory's asynchronous work completes on the calling thread.
+### Public operations
 
 | Public operation | Synchronous result | Asynchronous result |
 |---|---|---|
@@ -104,9 +106,17 @@ Sequence 1 creates a head, even without a snapshot. Later events immediately fol
 
 An empty outer `Option` means no head exists. A present `SnapshotReadResult` with an empty `snapshot` means the aggregate exists without a snapshot. Replay starts at 1 without a snapshot, or `snapshot.seqNr() + 1` with one. `headSeqNr` is neither the replay start nor an upper bound. Memory reads the pair atomically; DynamoDB reads each item strongly consistently but the pair non-atomically, so a snapshot may be older or newer than the head. Event reads consume every page.
 
-## DynamoDB factories
+## Storages
 
-Provision [three tables and the snapshot global secondary index](docs/DATABASE_SCHEMA.md) before creation. The caller owns and closes configured SDK clients. Factories validate or initialize the configuration items, and never provision tables.
+### Memory
+
+Only stores given the same `MemoryStorage` share records, settings and locking. `ofMemory(config)` creates an isolated storage for each call, for both synchronous and asynchronous factories. Memory's asynchronous work completes on the calling thread.
+
+The memory storage lives in a single process. It does not persist to files, survive restarts, or share data across processes.
+
+### DynamoDB
+
+Provision [three tables and the snapshot global secondary index](docs/DYNAMODB_DATABASE_SCHEMA.md) before creation. The caller owns and closes configured SDK clients. Factories validate or initialize the configuration items, and never provision tables.
 
 ```scala
 import com.github.j5ik2o.event.store.adapter.java.dynamodb.DynamoDbTableConfig
@@ -126,26 +136,37 @@ val asyncCreation = EventStoreAsync.ofDynamoDB(asyncClient, tables, AccountExamp
 
 Use the asynchronous store only after `asyncCreation` succeeds. It is connected to Java's asynchronous configuration I/O; synchronous I/O is not scheduled inside a Scala `Future`.
 
-## Retention and failures
+For DynamoDB, keep the three tables in one Region and write to them only from that Region. Global tables (multi-Region replicas) are not supported.
+
+## Serialization
+
+Java's `core` identifiers, envelopes, typed `PayloadSerializer<T>`, `EventStoreConfig`, `RetentionPolicy` and five exception classes are reused. Bind event and aggregate-state serializers at creation; reads take no `Class`. Serializers process payloads only, separately from envelope metadata.
+
+## Retention
 
 `RetentionPolicy.none()` keeps the current snapshot only; `delete(n)` keeps the newest n history snapshots. DynamoDB also supports `ttl(n, graceSeconds)` with snapshot TTL enabled. Memory rejects TTL. Configure the policy on `MemoryStorage` or `DynamoDbTableConfig`.
 
-A retention failure after commit preserves write success, logs the failure and notifies `retentionFailureListener` with the original cause. Java owns persistence, locking, cleanup and retries. The Scala layer converts only results and future wrappers.
+A retention failure after commit preserves write success, logs the failure and notifies `retentionFailureListener` with the original cause.
+
+## Errors
 
 Failures retain the Java exception type, `category()`, original cause and diagnostics: `OptimisticLockException`, `ContractViolationException`, `SerializationException`, `ConfigurationException`, `StorageException`. Contract violations expose `rule()` and `seqNr()`. Inspect failure values, not message text, to classify errors. Synchronous exceptions raised while invoking the asynchronous Java API become failed Scala futures.
 
-The memory storage lives in a single process. It does not persist to files, survive restarts, or share data across processes. For DynamoDB, keep the three tables in one Region and write to them only from that Region. Global tables (multi-Region replicas) are not supported.
+Java owns persistence, locking, cleanup and retries. The Scala layer converts only results and future wrappers.
 
+## Migration
 
-## Migration and verification
+See [MIGRATION_GUIDE](docs/MIGRATION_GUIDE.md) for the old-version read → application conversion → new-envelope rewrite procedure. Existing stored data is not automatically converted.
 
-See [MIGRATION_GUIDE](MIGRATION_GUIDE.md) for the old-version read → application conversion → new-envelope rewrite procedure. Existing stored data is not automatically converted.
+## Conformance
 
 ```sh
 sbt +compile +test +lint
 python3 tools/conformance/manifest.py verify
 ```
 
-Docker is required for the pinned DynamoDB Local 3.3.1 tests. [The conformance suite](src/test/scala/com/github/j5ik2o/event/store/adapter/scala/conformance/ScalaPublicConformanceSpec.scala) reuses the accepted comparison and fault machinery through Scala public factories and operations. Reports are saved in `target/reports/<scala-version>/conformance/`; they include per-rule results, manifest checks, fault applications and reasoned exclusions. FNV-1a 64 cases remain outside this release's storage profiles and do not count as successes.
+Docker is required for the pinned DynamoDB Local 3.3.1 tests. [The conformance suite](src/test/scala/com/github/j5ik2o/event/store/adapter/scala/conformance/ScalaPublicConformanceSpec.scala) reuses the accepted comparison and fault machinery through Scala public factories and operations. Reports are saved in `target/reports/<scala-version>/conformance/`; they include per-rule results, manifest checks, fault applications and reasoned exclusions. Four FNV-1a 64 cases remain outside this release's storage profiles and do not count as successes.
+
+## License
 
 MIT License. See [LICENSE](LICENSE).
