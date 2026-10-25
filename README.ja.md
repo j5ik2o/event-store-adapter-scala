@@ -1,14 +1,18 @@
+> この文書は [README.md](README.md) の日本語版です。英語版が正本で、食い違うときは英語版に従います。
+
 # event-store-adapter-scala
 
 [![CI](https://github.com/j5ik2o/event-store-adapter-scala/actions/workflows/ci.yml/badge.svg)](https://github.com/j5ik2o/event-store-adapter-scala/actions/workflows/ci.yml)
 [![Maven Central](https://maven-badges.herokuapp.com/maven-central/io.github.j5ik2o/event-store-adapter-scala_2.13/badge.svg)](https://maven-badges.herokuapp.com/maven-central/io.github.j5ik2o/event-store-adapter-scala_2.13)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
+## 概要
+
 JavaのMemory・DynamoDBイベントストアを包むScalaライブラリです。同期の生成・操作は`Try`、非同期の生成・操作は`Future`を返します。ドメイン型には直列化できることだけを要求し、ライブラリのtraitを実装させません。
 
 [English](README.md)
 
-## 導入
+## インストール
 
 Scala 2.13.18・3.6.4で構築し、`io.github.j5ik2o:event-store-adapter-java:5.0.1`に依存します。Maven Central に公開しています。旧成果物の公開操作は旧契約です。[共通契約 v5](https://github.com/j5ik2o/event-store-adapter/blob/main/docs/spec/README.md)に従います。メジャーの番号 5 は、共通契約の版と同じです。
 
@@ -17,9 +21,9 @@ val scalaAdapterVersion = "5.0.1"
 libraryDependencies += "io.github.j5ik2o" %% "event-store-adapter-scala" % scalaAdapterVersion
 ```
 
-Javaの`core`にある識別子、封筒、型付き`PayloadSerializer<T>`、`EventStoreConfig`、保持方針、5分類例外を再利用します。イベントと集約状態のシリアライザは生成時に決め、読取りごとの`Class`指定は不要です。直列化するのはペイロードだけで、封筒のメタデータを混ぜません。
+## はじめに
 
-## 保存と復元
+### 保存と復元
 
 次は名前をイベント内容と集約状態に使う、単独でコンパイルできる補助関数です。[AccountExampleSpec](src/test/scala/com/github/j5ik2o/event/store/adapter/scala/examples/AccountExampleSpec.scala)が両保存先・同期非同期で実行します。任意のScala case classと専用シリアライザは[UserAccountの例](src/test/scala/com/github/j5ik2o/event/store/adapter/scala/internal/UserAccount.scala)を参照してください。
 
@@ -91,7 +95,7 @@ val updated: Future[Option[String]] = for {
 } yield result // Some("Carol")
 ```
 
-同じ`MemoryStorage`を渡したストアだけが保存状態、設定、ロックを共有します。`ofMemory(config)`は同期・非同期とも生成ごとに独立した保存先を作ります。Memoryの非同期処理は呼出しスレッドで完了します。
+### 公開操作
 
 | 公開操作 | 同期結果 | 非同期結果 |
 |---|---|---|
@@ -104,9 +108,17 @@ val updated: Future[Option[String]] = for {
 
 最新読取の外側の`None`はヘッド不存在です。結果が存在し、内側の`snapshot`が`None`ならスナップショットなしの既存集約です。復元開始はなしの場合1、ある場合`snapshot.seqNr() + 1`です。`headSeqNr`を開始番号や上界にしません。Memoryは組を原子的に読みます。DynamoDBは各項目を強整合で非原子的に読むため、スナップショットがヘッドより古い組も新しい組も合法です。イベント読取りは全ページを読みます。
 
-## DynamoDBの生成
+## 保存先
 
-[3表とスナップショットのグローバルセカンダリインデックス](docs/DATABASE_SCHEMA.ja.md)を先に作成します。設定済みのソフトウェア開発キットのクライアントは呼出元が所有・終了します。生成入口は設定項目を照合・初期化しますが、表は作成しません。
+### メモリ
+
+同じ`MemoryStorage`を渡したストアだけが保存状態、設定、ロックを共有します。`ofMemory(config)`は同期・非同期とも生成ごとに独立した保存先を作ります。Memoryの非同期処理は呼出しスレッドで完了します。
+
+メモリの保存先は単一プロセスのメモリだけを使います。ファイルへの保存、再起動後の回復、プロセス間の共有はしません。
+
+### DynamoDB
+
+[3表とスナップショットのグローバルセカンダリインデックス](docs/DYNAMODB_DATABASE_SCHEMA.ja.md)を先に作成します。設定済みのソフトウェア開発キットのクライアントは呼出元が所有・終了します。生成入口は設定項目を照合・初期化しますが、表は作成しません。
 
 ```scala
 import com.github.j5ik2o.event.store.adapter.java.dynamodb.DynamoDbTableConfig
@@ -126,20 +138,29 @@ val asyncCreation = EventStoreAsync.ofDynamoDB(asyncClient, tables, AccountExamp
 
 `asyncCreation`の成功後にストアを使います。Javaの非同期設定照合へ接続し、同期の入出力をScalaの`Future`へ包んで実行しません。
 
-## 保持と失敗
+DynamoDB では、3 つの表は同じリージョンに置き、書き込みもそのリージョンからだけ行ってください。グローバルテーブル（複数リージョンのレプリカ）は範囲外です。
+
+## 直列化
+
+Javaの`core`にある識別子、封筒、型付き`PayloadSerializer<T>`、`EventStoreConfig`、保持方針、5分類例外を再利用します。イベントと集約状態のシリアライザは生成時に決め、読取りごとの`Class`指定は不要です。直列化するのはペイロードだけで、封筒のメタデータを混ぜません。
+
+## 保持
 
 `RetentionPolicy.none()`は現在のスナップショットだけ、`delete(n)`は最新n件の履歴を残します。DynamoDBは`ttl(n, graceSeconds)`による期限付き保持にも対応し、スナップショット表の有効期限属性を有効にします。Memoryは期限付き保持を拒みます。方針は`MemoryStorage`または`DynamoDbTableConfig`に設定します。
 
-確定後の保持失敗は書込み成功を変えません。ログと`retentionFailureListener`で元原因を知らせます。保存、ロック、保持、再試行はJavaが所有し、Scalaは結果とFutureの包みを変換します。
+確定後の保持失敗は書込み成功を変えません。ログと`retentionFailureListener`で元原因を知らせます。
+
+## エラー
 
 失敗はJavaの例外型、`category()`、元原因、診断を保持します。5分類は`OptimisticLockException`、`ContractViolationException`、`SerializationException`、`ConfigurationException`、`StorageException`です。契約違反は`rule()`と`seqNr()`を持ちます。メッセージから分類を推測せず、失敗値を調べます。非同期Java操作を呼ぶ時点の同期例外も、失敗したScalaのFutureで返します。
 
-メモリの保存先は単一プロセスのメモリだけを使います。ファイルへの保存、再起動後の回復、プロセス間の共有はしません。DynamoDB では、3 つの表は同じリージョンに置き、書き込みもそのリージョンからだけ行ってください。グローバルテーブル（複数リージョンのレプリカ）は範囲外です。
+保存、ロック、後片付け、再試行はJavaが所有し、Scalaは結果とFutureの包みを変換します。
 
+## 移行
 
-## 移行と検証
+[移行案内](docs/MIGRATION_GUIDE.ja.md)に、旧版読取→アプリケーションの明示変換→新封筒での書直しを示します。保存済みデータの自動変換はありません。
 
-[移行案内](MIGRATION_GUIDE.ja.md)に、旧版読取→アプリケーションの明示変換→新封筒での書直しを示します。保存済みデータの自動変換はありません。
+## 適合
 
 ```sh
 sbt +compile +test +lint
@@ -147,5 +168,7 @@ python3 tools/conformance/manifest.py verify
 ```
 
 固定DynamoDB Local 3.3.1の試験にはDockerが必要です。[適合試験](src/test/scala/com/github/j5ik2o/event/store/adapter/scala/conformance/ScalaPublicConformanceSpec.scala)は受入済みの比較器・障害支援を再利用し、Scala公開生成と操作から実行します。`target/reports/<scala-version>/conformance/`に、規則別結果、manifest照合、障害適用回数、理由付き対象外を保存します。FNV-1a 64の4ケースは、この公開範囲の保存先で使わないため成功へ数えません。
+
+## ライセンス
 
 MITライセンス。[LICENSE](LICENSE)を参照してください。
