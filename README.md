@@ -10,6 +10,8 @@ Scala wrappers for the Java Memory and DynamoDB event stores. Synchronous factor
 
 [日本語](README.ja.md)
 
+To contribute, see [CONTRIBUTING](CONTRIBUTING.md).
+
 ## Installation
 
 The source is cross-built for Scala 2.13.18 and 3.6.4 and depends on `io.github.j5ik2o:event-store-adapter-java:5.0.1`. It is published to Maven Central. Older Scala artifacts expose the previous API. This library follows [common contract v5](https://github.com/j5ik2o/event-store-adapter/blob/main/docs/spec/README.md); its major version 5 matches the contract revision.

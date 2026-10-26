@@ -12,6 +12,8 @@ JavaのMemory・DynamoDBイベントストアを包むScalaライブラリです
 
 [English](README.md)
 
+開発に参加する場合は [CONTRIBUTING](CONTRIBUTING.ja.md) を参照してください。
+
 ## インストール
 
 Scala 2.13.18・3.6.4で構築し、`io.github.j5ik2o:event-store-adapter-java:5.0.1`に依存します。Maven Central に公開しています。旧成果物の公開操作は旧契約です。[共通契約 v5](https://github.com/j5ik2o/event-store-adapter/blob/main/docs/spec/README.md)に従います。メジャーの番号 5 は、共通契約の版と同じです。
