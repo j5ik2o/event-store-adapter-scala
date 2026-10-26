@@ -23,7 +23,7 @@ event-store-adapter-scala に変更を加える開発者向けの案内です。
 
 - sbt（`project/build.properties` で `sbt.version = 1.13.0`）と JDK。CI の試験は JDK 11・17・19、`lint` ジョブは JDK 25（Temurin）で動きます。
 - Scala 2.13.18 と 3.6.4 でクロスビルドします。版は `sbt ++2.13.18 ...` または `sbt ++3.6.4 ...` で選び、`+` を付けると全版で実行します。
-- 文書と適合データの検査に Python 3 が必要です。
+- 文書と適合データの検査に Python 3 が必要です。 `tools/user-docs/check.py` は Python 3.10 以上が必要です。
 - DynamoDB Local の試験に Docker が必要です（[README](README.ja.md#適合) を参照）。
 - CI は `TEST_TIME_FACTOR: 3` で試験を実行します。
 
