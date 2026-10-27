@@ -1,6 +1,6 @@
 # Bigtable storage schema
 
-This is the layout used by `EventStore.ofBigtable` and `EventStoreAsync.ofBigtable`, which wrap the Java storage in `com.github.j5ik2o.event.store.adapter.java.bigtable`. The Java dependency is `5.0.2-SNAPSHOT`, a development build; the older `5.0.1` does not contain this storage. The library follows the [common contract v5](https://github.com/j5ik2o/event-store-adapter/blob/main/docs/spec/README.md) and its [Bigtable profile](https://github.com/j5ik2o/event-store-adapter/blob/main/docs/spec/storage/bigtable.md). Conformance data is 1.3.0. The stored `layout_version` is **1**, a separate storage-layout number.
+This is the layout used by `EventStore.ofBigtable` and `EventStoreAsync.ofBigtable`, which wrap the Java storage in `com.github.j5ik2o.event.store.adapter.java.bigtable`. The Java dependency is `5.1.0`; the older Java `5.0.1` does not contain this storage. The library follows the [common contract v5](https://github.com/j5ik2o/event-store-adapter/blob/main/docs/spec/README.md) and its [Bigtable profile](https://github.com/j5ik2o/event-store-adapter/blob/main/docs/spec/storage/bigtable.md). Conformance data is 1.3.0. The stored `layout_version` is **1**, a separate storage-layout number.
 
 See [README](../README.md) for the public factories and [MIGRATION_GUIDE](MIGRATION_GUIDE.md) for the version differences.
 

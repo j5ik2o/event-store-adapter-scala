@@ -16,10 +16,10 @@ JavaのMemory・DynamoDB・SQLite・Spanner・Bigtableイベントストアを�
 
 ## インストール
 
-Scala 2.13.18・3.6.4で構築し、`io.github.j5ik2o:event-store-adapter-java:5.0.2-SNAPSHOT`に依存します。これはSonatypeの開発版の配布先から取得する開発版で、旧版の`5.0.1`にはSQLite・Spanner・Bigtableの保存先がありません。Scalaのライブラリ自体はMaven Centralに公開しています。旧成果物の公開操作は旧契約です。[共通契約 v5](https://github.com/j5ik2o/event-store-adapter/blob/main/docs/spec/README.md)に従います。メジャーの番号 5 は、共通契約の版と同じです。
+Scala 2.13.18・3.6.4で構築し、Maven Centralの`io.github.j5ik2o:event-store-adapter-java:5.1.0`に依存します。SQLite・Spanner・Bigtableの保存先は、次に公開するScala `5.1.0`から使えます（旧版のScala `5.0.1`にはありません）。Scalaのライブラリ自体はMaven Centralに公開しています。旧成果物の公開操作は旧契約です。[共通契約 v5](https://github.com/j5ik2o/event-store-adapter/blob/main/docs/spec/README.md)に従います。メジャーの番号 5 は、共通契約の版と同じです。
 
 ```scala
-val scalaAdapterVersion = "5.0.1"
+val scalaAdapterVersion = "5.1.0"
 libraryDependencies += "io.github.j5ik2o" %% "event-store-adapter-scala" % scalaAdapterVersion
 ```
 

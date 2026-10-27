@@ -2,7 +2,7 @@
 
 ## Layout
 
-This is the Java DynamoDB layout used by the Scala public factories and four operations. The Java dependency is `5.0.2-SNAPSHOT` (a development build; the DynamoDB layout is the same as in `5.0.1`), the library follows [common contract v5](https://github.com/j5ik2o/event-store-adapter/blob/main/docs/spec/README.md) (its major version 5 matches the contract revision), and conformance data is 1.3.0. The stored `layout_version` is **1**, a separate storage-layout number.
+This is the Java DynamoDB layout used by the Scala public factories and four operations. The Java dependency is `5.1.0` (the DynamoDB layout is the same as in `5.0.1`), the library follows [common contract v5](https://github.com/j5ik2o/event-store-adapter/blob/main/docs/spec/README.md) (its major version 5 matches the contract revision), and conformance data is 1.3.0. The stored `layout_version` is **1**, a separate storage-layout number.
 
 ### Provisioning
 

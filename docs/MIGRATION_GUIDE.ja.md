@@ -4,7 +4,7 @@
 
 ## 概要
 
-この案内は、Scala 1.xの公開操作と保存データの移行を説明します。Scalaの成果物は5.0.1で、Javaの開発版 `5.0.2-SNAPSHOT` に依存します。[共通契約 v5](https://github.com/j5ik2o/event-store-adapter/blob/main/docs/spec/README.md)に従います。メジャーの番号 5 は、共通契約の版と同じです。適合テストデータ1.3.0とDynamoDBの`layout_version=1`は別の番号です。
+この案内は、Scala 1.xの公開操作と保存データの移行を説明します。次に公開するScalaは5.1.0で、Java `5.1.0` に依存します。[共通契約 v5](https://github.com/j5ik2o/event-store-adapter/blob/main/docs/spec/README.md)に従います。メジャーの番号 5 は、共通契約の版と同じです。適合テストデータ1.3.0とDynamoDBの`layout_version=1`は別の番号です。
 
 ## コードの変更
 

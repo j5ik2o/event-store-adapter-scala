@@ -2,7 +2,7 @@
 
 ## Overview
 
-This guide covers migrating the Scala 1.x public API and stored data. This release is Scala 5.0.1 and uses the Java development build `5.0.2-SNAPSHOT`. This library follows [common contract v5](https://github.com/j5ik2o/event-store-adapter/blob/main/docs/spec/README.md); its major version 5 matches the contract revision. Conformance data 1.3.0 and DynamoDB `layout_version=1` are separate version numbers.
+This guide covers migrating the Scala 1.x public API and stored data. The next Scala release is 5.1.0, which depends on Java `5.1.0`. This library follows [common contract v5](https://github.com/j5ik2o/event-store-adapter/blob/main/docs/spec/README.md); its major version 5 matches the contract revision. Conformance data 1.3.0 and DynamoDB `layout_version=1` are separate version numbers.
 
 ## Code changes
 

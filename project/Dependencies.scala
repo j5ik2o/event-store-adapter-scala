@@ -15,7 +15,7 @@ object Dependencies {
   import Versions._
 
   object j5ik2o {
-    val eventStoreAdapterJava = "io.github.j5ik2o" % "event-store-adapter-java" % "5.0.2-SNAPSHOT"
+    val eventStoreAdapterJava = "io.github.j5ik2o" % "event-store-adapter-java" % "5.1.0"
   }
 
   object testSupport {
