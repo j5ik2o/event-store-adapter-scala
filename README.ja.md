@@ -8,7 +8,7 @@
 
 ## 概要
 
-JavaのMemory・DynamoDBイベントストアを包むScalaライブラリです。同期の生成・操作は`Try`、非同期の生成・操作は`Future`を返します。ドメイン型には直列化できることだけを要求し、ライブラリのtraitを実装させません。
+JavaのMemory・DynamoDB・SQLite・Spanner・Bigtableイベントストアを包むScalaライブラリです。同期の生成・操作は`Try`、非同期の生成・操作は`Future`を返します。ドメイン型には直列化できることだけを要求し、ライブラリのtraitを実装させません。
 
 [English](README.md)
 
@@ -16,7 +16,7 @@ JavaのMemory・DynamoDBイベントストアを包むScalaライブラリです
 
 ## インストール
 
-Scala 2.13.18・3.6.4で構築し、`io.github.j5ik2o:event-store-adapter-java:5.0.1`に依存します。Maven Central に公開しています。旧成果物の公開操作は旧契約です。[共通契約 v5](https://github.com/j5ik2o/event-store-adapter/blob/main/docs/spec/README.md)に従います。メジャーの番号 5 は、共通契約の版と同じです。
+Scala 2.13.18・3.6.4で構築し、`io.github.j5ik2o:event-store-adapter-java:5.0.2-SNAPSHOT`に依存します。これはSonatypeの開発版の配布先から取得する開発版で、旧版の`5.0.1`にはSQLite・Spanner・Bigtableの保存先がありません。Scalaのライブラリ自体はMaven Centralに公開しています。旧成果物の公開操作は旧契約です。[共通契約 v5](https://github.com/j5ik2o/event-store-adapter/blob/main/docs/spec/README.md)に従います。メジャーの番号 5 は、共通契約の版と同じです。
 
 ```scala
 val scalaAdapterVersion = "5.0.1"
@@ -27,7 +27,7 @@ libraryDependencies += "io.github.j5ik2o" %% "event-store-adapter-scala" % scala
 
 ### 保存と復元
 
-次は名前をイベント内容と集約状態に使う、単独でコンパイルできる補助関数です。[AccountExampleSpec](src/test/scala/com/github/j5ik2o/event/store/adapter/scala/examples/AccountExampleSpec.scala)が両保存先・同期非同期で実行します。任意のScala case classと専用シリアライザは[UserAccountの例](src/test/scala/com/github/j5ik2o/event/store/adapter/scala/internal/UserAccount.scala)を参照してください。
+次は名前をイベント内容と集約状態に使う、単独でコンパイルできる補助関数です。[AccountExampleSpec](src/test/scala/com/github/j5ik2o/event/store/adapter/scala/examples/AccountExampleSpec.scala)がMemoryとDynamoDBを同期・非同期で実行します。SQLite・Spanner・Bigtableの用意のコード（[StorageExamples](src/test/scala/com/github/j5ik2o/event/store/adapter/scala/examples/StorageExamples.scala)）は同じ試験が初回の起動と再起動で実行します。任意のScala case classと専用シリアライザは[UserAccountの例](src/test/scala/com/github/j5ik2o/event/store/adapter/scala/internal/UserAccount.scala)を参照してください。
 
 ```scala
 import com.github.j5ik2o.event.store.adapter.java.core.{AggregateId, EventEnvelope, EventStoreConfig, JsonPayloadSerializer, SnapshotEnvelope}
@@ -142,13 +142,119 @@ val asyncCreation = EventStoreAsync.ofDynamoDB(asyncClient, tables, AccountExamp
 
 DynamoDB では、3 つの表は同じリージョンに置き、書き込みもそのリージョンからだけ行ってください。グローバルテーブル（複数リージョンのレプリカ）は範囲外です。
 
+### SQLite
+
+1つのローカルファイルがストア全体を持ちます（[SQLite のスキーマ](docs/SQLITE_DATABASE_SCHEMA.ja.md)）。新しいファイルを1回だけ初期化し、起動のたびに開きます。開く操作はファイルを作成も初期化もしません。`SqliteStorage`を閉じるのは呼出元で、Scalaの生成入口は閉じません。ネットワークファイルシステムは使わないでください。
+
+```scala
+import com.github.j5ik2o.event.store.adapter.java.core.RetentionPolicy
+import com.github.j5ik2o.event.store.adapter.java.sqlite.{SqliteStorage, SqliteStorageConfig}
+
+import java.nio.file.Path
+import java.time.Duration
+
+def sqliteSettings(): SqliteStorageConfig =
+  SqliteStorageConfig.builder().retentionPolicy(RetentionPolicy.delete(2)).lockWait(Duration.ofSeconds(5)).build()
+
+// 初回だけ。新しい（空の）ファイルに表を作ります。
+def initializeSqlite(file: Path): Unit = SqliteStorage.initialize(file, sqliteSettings())
+
+// 毎回。初期化済みのファイルを開きます。閉じるのは呼出元です。
+def openSqlite(file: Path): SqliteStorage = SqliteStorage.open(file, sqliteSettings())
+
+// 初回の起動
+initializeSqlite(file)
+val storage = openSqlite(file)
+try {
+  val store = EventStore.ofSqlite(storage, AccountExample.config).get
+  store.persistEvent(AccountExample.event(id, 1L, "Alice")).get
+} finally storage.close()
+
+// 再起動。同じファイルを開き直します。initializeは呼びません。
+val restarted = openSqlite(file)
+try {
+  val reopened = EventStore.ofSqlite(restarted, AccountExample.config).get
+  AccountExample.restore(reopened, id).get // Some("Alice")
+  reopened.persistEvent(AccountExample.event(id, 2L, "Bob")).get
+  val asyncReopened = EventStoreAsync.ofSqlite(restarted, AccountExample.config) // Future
+} finally restarted.close()
+```
+
+### Spanner
+
+5つの表と設定行は、運用者がライブラリの外で1回だけ作成します（[Spanner のスキーマ](docs/SPANNER_DATABASE_SCHEMA.ja.md)）。Spannerの`DatabaseClient`は呼出元が所有し、保存先を開く操作もScalaの生成入口も閉じません。表の接頭辞と保持方針は設定行と一致させます。
+
+```scala
+import com.github.j5ik2o.event.store.adapter.java.spanner.{SpannerRetentionPolicy, SpannerStorage, SpannerStorageConfig}
+import com.google.cloud.spanner.DatabaseClient
+
+def spannerSettings(prefix: String): SpannerStorageConfig =
+  SpannerStorageConfig.builder().tablePrefix(prefix).retentionPolicy(SpannerRetentionPolicy.delete(2)).build()
+
+// 毎回。表と設定行は作成済みです。
+def openSpanner(client: DatabaseClient, prefix: String): SpannerStorage =
+  SpannerStorage.open(client, spannerSettings(prefix))
+
+// client: DatabaseClient
+val storage = openSpanner(client, "accounts")
+val store = EventStore.ofSpanner(storage, AccountExample.config).get
+store.persistEvent(AccountExample.event(id, 1L, "Alice")).get
+
+// 再起動。同じ表を開き直します。
+val restarted = openSpanner(client, "accounts")
+val reopened = EventStore.ofSpanner(restarted, AccountExample.config).get
+AccountExample.restore(reopened, id).get // Some("Alice")
+val asyncReopened = EventStoreAsync.ofSpanner(restarted, AccountExample.config) // Future
+```
+
+### Bigtable
+
+2つの表と列ファミリーは、運用者がライブラリの外で作成します（[Bigtable のスキーマ](docs/BIGTABLE_DATABASE_SCHEMA.ja.md)）。初回の起動で`initialize`を1回呼んで設定行を書き、以後の起動では開くだけにします。データ用と管理用のクライアントは呼出元が所有し、閉じます。
+
+```scala
+import com.github.j5ik2o.event.store.adapter.java.bigtable.{BigtableStorage, BigtableStorageConfig}
+import com.github.j5ik2o.event.store.adapter.java.core.RetentionPolicy
+import com.google.cloud.bigtable.admin.v2.BigtableTableAdminClient
+import com.google.cloud.bigtable.data.v2.BigtableDataClient
+
+def bigtableSettings(journalTableId: String, headTableId: String): BigtableStorageConfig =
+  BigtableStorageConfig.builder()
+    .journalTableId(journalTableId)
+    .headTableId(headTableId)
+    .retentionPolicy(RetentionPolicy.delete(2))
+    .build()
+
+// 初回だけ。運用者が作った表に2つの設定行を書きます。
+def initializeBigtable(data: BigtableDataClient, settings: BigtableStorageConfig): Unit =
+  BigtableStorage.initialize(data, settings)
+
+// 毎回。初期化済みの表を開きます。
+def openBigtable(data: BigtableDataClient, admin: BigtableTableAdminClient, settings: BigtableStorageConfig): BigtableStorage =
+  BigtableStorage.open(data, admin, settings)
+
+// data: BigtableDataClient, admin: BigtableTableAdminClient
+val settings = bigtableSettings("accounts-journal", "accounts-head")
+initializeBigtable(data, settings) // 初回だけ
+val storage = openBigtable(data, admin, settings)
+val store = EventStore.ofBigtable(storage, AccountExample.config).get
+store.persistEvent(AccountExample.event(id, 1L, "Alice")).get
+
+// 再起動。開き直します。initializeは呼びません。
+val restarted = openBigtable(data, admin, settings)
+val reopened = EventStore.ofBigtable(restarted, AccountExample.config).get
+AccountExample.restore(reopened, id).get // Some("Alice")
+val asyncReopened = EventStoreAsync.ofBigtable(restarted, AccountExample.config) // Future
+```
+
+SQLite・Spanner・Bigtableの非同期の生成入口は、Memoryと同じく呼出しスレッドで完了します。ストアを使い終えても、保存先とクライアントは開いたままです。閉じるのは呼出元です。
+
 ## 直列化
 
 Javaの`core`にある識別子、封筒、型付き`PayloadSerializer<T>`、`EventStoreConfig`、保持方針、5分類例外を再利用します。イベントと集約状態のシリアライザは生成時に決め、読取りごとの`Class`指定は不要です。直列化するのはペイロードだけで、封筒のメタデータを混ぜません。
 
 ## 保持
 
-`RetentionPolicy.none()`は現在のスナップショットだけ、`delete(n)`は最新n件の履歴を残します。DynamoDBは`ttl(n, graceSeconds)`による期限付き保持にも対応し、スナップショット表の有効期限属性を有効にします。Memoryは期限付き保持を拒みます。方針は`MemoryStorage`または`DynamoDbTableConfig`に設定します。
+`RetentionPolicy.none()`は現在のスナップショットだけ、`delete(n)`は最新n件の履歴を残します。DynamoDBは`ttl(n, graceSeconds)`による期限付き保持にも対応し、スナップショット表の有効期限属性を有効にします。Spannerは`SpannerRetentionPolicy.ttl(n, graceDays)`に対応します。Memory・SQLite・Bigtableは期限付き保持を拒みます。方針は`MemoryStorage`、`DynamoDbTableConfig`、`SqliteStorageConfig`、`SpannerStorageConfig`、`BigtableStorageConfig`に設定します。
 
 確定後の保持失敗は書込み成功を変えません。ログと`retentionFailureListener`で元原因を知らせます。
 
@@ -160,7 +266,7 @@ Javaの`core`にある識別子、封筒、型付き`PayloadSerializer<T>`、`Ev
 
 ## 移行
 
-[移行案内](docs/MIGRATION_GUIDE.ja.md)に、旧版読取→アプリケーションの明示変換→新封筒での書直しを示します。保存済みデータの自動変換はありません。
+[移行案内](docs/MIGRATION_GUIDE.ja.md)に、旧版読取→アプリケーションの明示変換→新封筒での書直しを示します。保存済みデータの自動変換はありません。SQLite・Spanner・Bigtableは1.x系にはなかったため、移すデータはありません。使い始める手順は移行案内にあります。
 
 ## 適合
 
@@ -169,7 +275,7 @@ sbt +compile +test +lint
 python3 tools/conformance/manifest.py verify
 ```
 
-固定DynamoDB Local 3.3.1の試験にはDockerが必要です。[適合試験](src/test/scala/com/github/j5ik2o/event/store/adapter/scala/conformance/ScalaPublicConformanceSpec.scala)は受入済みの比較器・障害支援を再利用し、Scala公開生成と操作から実行します。`target/reports/<scala-version>/conformance/`に、規則別結果、manifest照合、障害適用回数、理由付き対象外を保存します。FNV-1a 64の4ケースは、この公開範囲の保存先で使わないため成功へ数えません。
+固定DynamoDB Local 3.3.1、Cloud Spannerエミュレーター、Cloud Bigtableエミュレーターの試験にはDockerが必要です。SQLiteの試験はローカルファイルを使い、Dockerは不要です。[適合試験](src/test/scala/com/github/j5ik2o/event/store/adapter/scala/conformance/ScalaPublicConformanceSpec.scala)は受入済みの比較器・障害支援を再利用し、Scala公開生成と操作から実行します。`target/reports/<scala-version>/conformance/`に、規則別結果、manifest照合、障害適用回数、理由付き対象外を保存します。対象のケースはすべて、5つの保存先で同期と非同期の公開生成入口から実行します。ケースを対象外にするのはJava実装と同じ理由（ほかの保存先の場面、ミリ秒精度、DynamoDBの配置、SQLiteの変更フィード）だけで、保存先が未提供であることは理由にしません。
 
 ## ライセンス
 

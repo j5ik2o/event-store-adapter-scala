@@ -2,7 +2,7 @@
 
 ## Overview
 
-This guide covers migrating the Scala 1.x public API and stored data. This release is Scala 5.0.1 and uses Java `5.0.1`. This library follows [common contract v5](https://github.com/j5ik2o/event-store-adapter/blob/main/docs/spec/README.md); its major version 5 matches the contract revision. Conformance data 1.3.0 and DynamoDB `layout_version=1` are separate version numbers.
+This guide covers migrating the Scala 1.x public API and stored data. This release is Scala 5.0.1 and uses the Java development build `5.0.2-SNAPSHOT`. This library follows [common contract v5](https://github.com/j5ik2o/event-store-adapter/blob/main/docs/spec/README.md); its major version 5 matches the contract revision. Conformance data 1.3.0 and DynamoDB `layout_version=1` are separate version numbers.
 
 ## Code changes
 
@@ -20,6 +20,7 @@ This guide covers migrating the Scala 1.x public API and stored data. This relea
 | `getLatestSnapshotById(Class, id)` | `getLatestSnapshotById(id)` returning two levels of optionality |
 | `getEventsByIdSinceSequenceNumber(Class, id, start)` | `getEventsByIdSinceSeqNr(id, start)` returning complete envelopes |
 | Old read/write/deserialization exceptions | The five Java `core` exception categories; deserialization also uses `SerializationException` |
+| (not available in 1.x) | `EventStore.ofSqlite` / `ofSpanner` / `ofBigtable` and the `EventStoreAsync` counterparts, taking a storage the caller opened |
 
 Bind payload and aggregate-state serializers at creation. Serialize domain content only; put the aggregate identifier, sequence, event time and manifest in their envelope fields. The library does not interpret manifest values. Use verified type names and identifier values; do not infer them from the previous string representation.
 
@@ -37,16 +38,34 @@ Retention failure after commit preserves write success and uses the separate log
 
 ## Data migration
 
+### New storages: SQLite, Spanner and Bigtable
+
+The 1.x releases had no SQLite, Spanner or Bigtable storage, so there is no stored data to migrate and this guide provides no migration tool for them. Start with an empty store, as follows.
+
+1. SQLite: call `SqliteStorage.initialize(file, settings)` once for a new file, then open it with `SqliteStorage.open(file, settings)` on every launch and pass it to `EventStore.ofSqlite` or `EventStoreAsync.ofSqlite`.
+2. Spanner: create the five tables and the configuration row outside the library ([Spanner schema](SPANNER_DATABASE_SCHEMA.md)), then call `SpannerStorage.open(client, settings)` and `EventStore.ofSpanner` or `EventStoreAsync.ofSpanner`.
+3. Bigtable: create the two tables outside the library ([Bigtable schema](BIGTABLE_DATABASE_SCHEMA.md)), call `BigtableStorage.initialize(data, settings)` once, then open with `BigtableStorage.open(data, admin, settings)` on every launch and pass it to `EventStore.ofBigtable` or `EventStoreAsync.ofBigtable`.
+
+On a restart, open the same file or tables again without initializing. The caller owns and closes the storage and clients. To move existing DynamoDB or Memory data into one of them, use the manual rewrite below: the common conversion steps apply to every target, then prepare and open the target storage you chose and write the new envelopes through it.
+
 ### Manual data rewrite
 
-The new library reads the new layout. The supported migration is an old-version read, application-owned conversion and new-envelope rewrite into separate tables.
+The new library reads the new layout. The supported migration is an old-version read, application-owned conversion and new-envelope rewrite into a separate new store (separate tables, or a new file for SQLite).
 
 1. Control old-store writes and retain the old data and its verified domain/schema information throughout migration.
 2. Use the old Scala/Java library and the application's old serializers to read every event for each aggregate. Inspect any old snapshot's state and sequence before using it.
 3. Explicitly map the old identifier to a verified type name and value. Separate payload from envelope metadata, preserve the verified event time and choose manifests from known schema information. Verify a consecutive event history beginning at 1 before writing. Resolve missing records or information from actual data rather than inserting guessed values.
-4. Provision separate journal, snapshot and head tables with the [new schema](DYNAMODB_DATABASE_SCHEMA.md). Keep old and new table sets separate. Enable snapshot `ttl` only when using TTL retention.
-5. Call `EventStore.ofDynamoDB(client, tables, config)` and inspect its `Try`, or await the success of `EventStoreAsync.ofDynamoDB(asyncClient, tables, config)`. The factory initializes or validates the three configuration records with one store identity and layout version.
-6. Write converted events in consecutive ascending sequence order with `persistEvent`. To save a converted snapshot, use `persistEventAndSnapshot` while appending its matching event. There is no snapshot-only write operation. Do not copy old versions, shard keys or metadata-bearing JSON unchanged.
+
+Then prepare and open the target storage you chose. Use a new, separate store; never write into the old tables or file.
+
+- DynamoDB: provision separate journal, snapshot and head tables with the [new schema](DYNAMODB_DATABASE_SCHEMA.md). Keep old and new table sets separate. Enable snapshot `ttl` only when using TTL retention. Call `EventStore.ofDynamoDB(client, tables, config)` and inspect its `Try`, or await the success of `EventStoreAsync.ofDynamoDB(asyncClient, tables, config)`. The factory initializes or validates the three configuration records with one store identity and layout version.
+- SQLite: use a new file ([SQLite schema](SQLITE_DATABASE_SCHEMA.md)). Call `SqliteStorage.initialize(file, settings)` once, then open it with `SqliteStorage.open(file, settings)` and pass it to `EventStore.ofSqlite` or `EventStoreAsync.ofSqlite`. Close the storage when the rewrite ends.
+- Spanner: create the five new tables and the configuration row outside the library ([Spanner schema](SPANNER_DATABASE_SCHEMA.md)), using a table prefix not used by other data. Call `SpannerStorage.open(client, settings)` and pass it to `EventStore.ofSpanner` or `EventStoreAsync.ofSpanner`.
+- Bigtable: create the two new tables outside the library ([Bigtable schema](BIGTABLE_DATABASE_SCHEMA.md)), call `BigtableStorage.initialize(data, settings)` once, then open with `BigtableStorage.open(data, admin, settings)` and pass it to `EventStore.ofBigtable` or `EventStoreAsync.ofBigtable`.
+
+Write the converted data through the store you created:
+
+4. Write converted events in consecutive ascending sequence order with `persistEvent`. To save a converted snapshot, use `persistEventAndSnapshot` while appending its matching event. There is no snapshot-only write operation. Do not copy old versions, shard keys or metadata-bearing JSON unchanged.
 
 Check the original timestamp representation and precision before converting it to `Instant`. If the old data contains milliseconds only, preserve exactly those milliseconds. Do not infer the old time unit or restore lost nanoseconds, type information or identifiers from guesses or the current time.
 
@@ -56,5 +75,5 @@ After an interrupted rewrite, inspect already committed sequences before resumin
 
 ### Read-back and cutover
 
-7. Read back every envelope and restore aggregate state with the new public API. Compare the result with the verified converted payloads, sequences, timestamps, manifests and states. Preserve classified failures rather than replacing them with empty results.
-8. Switch the application's reads and writes after verifying the rewritten store. The application owner decides when to remove old tables; this guide performs no deletion.
+5. Read back every envelope and restore aggregate state with the new public API. Compare the result with the verified converted payloads, sequences, timestamps, manifests and states. Preserve classified failures rather than replacing them with empty results.
+6. Switch the application's reads and writes after verifying the rewritten store. The application owner decides when to remove old tables; this guide performs no deletion.

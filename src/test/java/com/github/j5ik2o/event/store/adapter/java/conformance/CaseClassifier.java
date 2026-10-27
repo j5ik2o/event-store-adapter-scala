@@ -1,6 +1,5 @@
 package com.github.j5ik2o.event.store.adapter.java.conformance;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -14,19 +13,23 @@ final class CaseClassifier {
       "最初のメジャーにはハッシュを使う保存先がないため（DY-16。実装計画 5 章の受け入れ条件 1、2026-10-06 の決定）";
   static final String REASON_BACKEND = "保存先が backends に含まれない（設計文書 5.3 の 1）";
   static final String REASON_LAYOUT = "DynamoDB の配置の照合であり、メモリに該当しない（設計文書 5.4）";
+  static final String REASON_LAYOUT_SQLITE = "DynamoDB の配置の照合であり、SQLite に該当しない";
+  static final String REASON_LAYOUT_SPANNER = "DynamoDB の配置の照合であり、Spanner に該当しない";
+  static final String REASON_LAYOUT_BIGTABLE = "DynamoDB の配置の照合であり、Bigtable に該当しない";
+  static final String REASON_BIGTABLE_ENVELOPE = "Bigtable の封筒の形式であり、この保存先に該当しない";
   static final String REASON_MILLISECONDS =
       "標準時刻型 Instant はナノ秒を表せるため、milliseconds のケースは対象外（設計文書 5.2）";
   static final String REASON_CHANGE_FEED =
       "公開設定（Scala の ofMemory・ofDynamoDB が受け取る MemoryStorage・DynamoDbTableConfig・EventStoreConfig）に"
           + "変更フィードを求める項目がなく、change_feed=true を表せない";
   static final String REASON_NOT_EXECUTED = "この分類経路では保存先の公開操作を実行していない（設計文書 5.3）";
-  static final String REASON_UNPROVIDED_BACKEND =
-      "この言語はその保存先を提供しない（SQLite・Spanner・Bigtable の保存先は未提供）";
 
-  private static final Set<String> PROVIDED_BACKENDS =
-      Arrays.stream(Backend.values()).map(Backend::dataName).collect(Collectors.toSet());
-  private static final Set<String> UNPROVIDED_BACKEND_OPERATIONS =
-      Set.of("encodeBigtableEventEnvelope", "encodeBigtableSnapshotEnvelope", "decodeBigtableEnvelope");
+  // 値の表は backends を持たないので、操作名で分類する。
+  private static final Set<String> BIGTABLE_VALUE_OPERATIONS =
+      Set.of(
+          "encodeBigtableEventEnvelope",
+          "encodeBigtableSnapshotEnvelope",
+          "decodeBigtableEnvelope");
 
   private CaseClassifier() {}
 
@@ -39,40 +42,62 @@ final class CaseClassifier {
     if (backend == Backend.MEMORY && MemoryCaseRunner.supports(c)) {
       return MemoryCaseRunner.run(c);
     }
+    if (backend == Backend.SQLITE && SqliteCaseRunner.supports(c)) {
+      return SqliteCaseRunner.run(c);
+    }
+    if (backend == Backend.SPANNER && SpannerCaseRunner.supports(c)) {
+      return SpannerCaseRunner.run(c);
+    }
+    if (backend == Backend.BIGTABLE && BigtableCaseRunner.supports(c)) {
+      return BigtableCaseRunner.run(c);
+    }
     return result(c, backend, ConformanceStatus.UNVERIFIED, REASON_NOT_EXECUTED);
   }
 
   /** Capability selection is independent of which cases have been connected to a runner. */
   static Optional<CaseResult> exclusion(ConformanceCase c, Backend backend) {
-    if (c.operation().map("fnv1a64"::equals).orElse(false)) {
+    if (backend != Backend.SPANNER
+        && backend != Backend.BIGTABLE
+        && c.operation().map("fnv1a64"::equals).orElse(false)) {
       return Optional.of(result(c, backend, ConformanceStatus.NOT_APPLICABLE, REASON_HASH));
     }
-    if (targetsOnlyUnprovidedBackends(c)) {
+    if (backend != Backend.BIGTABLE
+        && c.operation().map(BIGTABLE_VALUE_OPERATIONS::contains).orElse(false)) {
       return Optional.of(
-          result(c, backend, ConformanceStatus.NOT_APPLICABLE, REASON_UNPROVIDED_BACKEND));
+          result(c, backend, ConformanceStatus.NOT_APPLICABLE, REASON_BIGTABLE_ENVELOPE));
     }
     if (c.backends().map(names -> !names.contains(backend.dataName())).orElse(false)) {
       return Optional.of(result(c, backend, ConformanceStatus.NOT_APPLICABLE, REASON_BACKEND));
     }
-    if (c.changeFeedRequested()) {
+    if (c.changeFeedRequested() && backend != Backend.SPANNER && backend != Backend.BIGTABLE) {
       return Optional.of(
-          result(c, backend, ConformanceStatus.UNREPRESENTABLE, REASON_CHANGE_FEED));
+          result(
+              c,
+              backend,
+              ConformanceStatus.UNREPRESENTABLE,
+              backend == Backend.SQLITE
+                  ? SqliteCaseRunner.REASON_CHANGE_FEED
+                  : REASON_CHANGE_FEED));
     }
     if ("layout".equals(c.format()) && backend == Backend.MEMORY) {
       return Optional.of(result(c, backend, ConformanceStatus.NOT_APPLICABLE, REASON_LAYOUT));
+    }
+    if ("layout".equals(c.format()) && backend == Backend.SQLITE) {
+      return Optional.of(
+          result(c, backend, ConformanceStatus.NOT_APPLICABLE, REASON_LAYOUT_SQLITE));
+    }
+    if ("layout".equals(c.format()) && backend == Backend.SPANNER) {
+      return Optional.of(
+          result(c, backend, ConformanceStatus.NOT_APPLICABLE, REASON_LAYOUT_SPANNER));
+    }
+    if ("layout".equals(c.format()) && backend == Backend.BIGTABLE) {
+      return Optional.of(
+          result(c, backend, ConformanceStatus.NOT_APPLICABLE, REASON_LAYOUT_BIGTABLE));
     }
     if (c.timePrecision().map("milliseconds"::equals).orElse(false)) {
       return Optional.of(result(c, backend, ConformanceStatus.NOT_APPLICABLE, REASON_MILLISECONDS));
     }
     return Optional.empty();
-  }
-
-  /** backends にこの言語の保存先を 1 つも含まない、または未提供の保存先の値の表の操作か。中身は解釈しない。 */
-  private static boolean targetsOnlyUnprovidedBackends(ConformanceCase c) {
-    return c.operation().map(UNPROVIDED_BACKEND_OPERATIONS::contains).orElse(false)
-        || c.backends()
-            .map(names -> names.stream().noneMatch(PROVIDED_BACKENDS::contains))
-            .orElse(false);
   }
 
   /** その保存先の一覧にあるのに成功していないケースか。判定はケース ID と保存先の組で行う。 */

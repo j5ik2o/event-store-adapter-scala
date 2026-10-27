@@ -16,9 +16,11 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
@@ -241,38 +243,62 @@ class MemoryCaseRunnerBoundaryTest {
   }
 
   @Test
-  void unprovidedBackendCasesAreNotApplicableWithAReasonBeforeInterpretation() throws Exception {
-    List<ConformanceCase> targeted = new ArrayList<>();
-    for (ConformanceCase c : ConformanceDataLoader.load(Path.of("conformance")).cases()) {
-      String file = c.file();
-      if (file.startsWith("sqlite/") || file.startsWith("spanner/") || file.startsWith("bigtable/")
-          || file.startsWith("scenarios/stores/") || file.equals("values/bigtable-envelope.json")) {
-        targeted.add(c);
+  void eachProvidedBackendTargetsExactlyItsRequiredCasesAndNothingIsExcludedAsUnprovided()
+      throws Exception {
+    List<ConformanceCase> cases = ConformanceDataLoader.load(Path.of("conformance")).cases();
+    Map<Backend, Integer> expected =
+        Map.of(Backend.SQLITE, 67, Backend.SPANNER, 79, Backend.BIGTABLE, 87);
+    Map<Backend, Set<String>> required = RequiredCases.load();
+    for (Map.Entry<Backend, Integer> entry : expected.entrySet()) {
+      Set<String> targets = new HashSet<>();
+      for (ConformanceCase c : cases) {
+        if (CaseClassifier.exclusion(c, entry.getKey()).isEmpty()) targets.add(c.id());
       }
+      assertEquals(entry.getValue().intValue(), targets.size(), entry.getKey().reportName());
+      assertEquals(required.get(entry.getKey()), targets, entry.getKey().reportName());
     }
-    assertFalse(targeted.isEmpty());
-    for (ConformanceCase c : targeted) {
+    for (ConformanceCase c : cases) {
       for (Backend backend : Backend.values()) {
-        CaseResult excluded =
-            CaseClassifier.exclusion(c, backend).orElseThrow(() -> new AssertionError(c.id()));
-        assertEquals(ConformanceStatus.NOT_APPLICABLE, excluded.status(), c.id());
-        assertEquals(CaseClassifier.REASON_UNPROVIDED_BACKEND, excluded.reason(), c.id());
-        CaseResult classified = CaseClassifier.classify(c, backend);
-        assertEquals(ConformanceStatus.NOT_APPLICABLE, classified.status(), c.id());
-        assertEquals(CaseClassifier.REASON_UNPROVIDED_BACKEND, classified.reason(), c.id());
+        CaseClassifier.exclusion(c, backend)
+            .ifPresent(
+                excluded ->
+                    assertFalse(
+                        excluded.reason().contains("未提供"), c.id() + " " + backend.reportName()));
       }
     }
+  }
+
+  @Test
+  void backendSpecificCasesAreNotApplicableOnOtherBackendsOnlyBecauseOfTheirBackendsList()
+      throws Exception {
+    Map<String, Backend> owners =
+        Map.of("sqlite/", Backend.SQLITE, "spanner/", Backend.SPANNER, "bigtable/", Backend.BIGTABLE);
+    int checked = 0;
+    for (ConformanceCase c : ConformanceDataLoader.load(Path.of("conformance")).cases()) {
+      for (Map.Entry<String, Backend> owner : owners.entrySet()) {
+        if (!c.file().startsWith(owner.getKey())) continue;
+        for (Backend backend : Backend.values()) {
+          if (backend == owner.getValue()) continue;
+          CaseResult excluded =
+              CaseClassifier.exclusion(c, backend).orElseThrow(() -> new AssertionError(c.id()));
+          assertEquals(ConformanceStatus.NOT_APPLICABLE, excluded.status(), c.id());
+          assertEquals(CaseClassifier.REASON_BACKEND, excluded.reason(), c.id());
+          checked++;
+        }
+      }
+    }
+    assertTrue(checked > 0);
   }
 
   @Test
   void unknownOperationInAnApplicableMemoryCaseIsNotPassed() {
     ConformanceCase applicable = lockCase("local-hold-write-lock", "memory");
     assertEquals(ConformanceStatus.UNVERIFIED, CaseClassifier.classify(applicable, Backend.MEMORY).status());
-    ConformanceCase unprovided = lockCase("local-hold-write-lock-sqlite", "sqlite");
+    ConformanceCase otherBackend = lockCase("local-hold-write-lock-sqlite", "sqlite");
     CaseResult excluded =
-        CaseClassifier.exclusion(unprovided, Backend.MEMORY).orElseThrow(AssertionError::new);
+        CaseClassifier.exclusion(otherBackend, Backend.MEMORY).orElseThrow(AssertionError::new);
     assertEquals(ConformanceStatus.NOT_APPLICABLE, excluded.status());
-    assertEquals(CaseClassifier.REASON_UNPROVIDED_BACKEND, excluded.reason());
+    assertEquals(CaseClassifier.REASON_BACKEND, excluded.reason());
   }
 
   @Test
@@ -286,42 +312,6 @@ class MemoryCaseRunnerBoundaryTest {
     for (Backend backend : Backend.values()) {
       assertEquals(ConformanceStatus.UNVERIFIED, CaseClassifier.classify(unknown, backend).status());
     }
-  }
-
-  @Test
-  void unprovidedBackendRulesAreReportedAsNotApplicable() throws Exception {
-    List<CaseResult> results = new ArrayList<>();
-    for (ConformanceCase c : ConformanceDataLoader.load(Path.of("conformance")).cases()) {
-      for (Backend backend : Backend.values()) {
-        CaseClassifier.exclusion(c, backend).ifPresent(results::add);
-      }
-    }
-    ConformanceCase sharedConfiguration = dataCase("memory-store-shared-configuration");
-    results.add(CaseClassifier.classify(sharedConfiguration, Backend.MEMORY));
-    JsonNode rules =
-        new ConformanceReport("1.3.0", ManifestVerifier.verify(Path.of("conformance")), "test", null,
-                results, ConformanceJson.mapper().createArrayNode())
-            .toJson()
-            .path("rules");
-    Map<String, Integer> found = new HashMap<>();
-    boolean mem2HasSharedConfiguration = false;
-    for (JsonNode entry : rules) {
-      String rule = entry.path("rule").asText();
-      if (rule.matches("^(SQ|SPN|BT)-.*")) {
-        assertEquals("not-applicable", entry.path("status").asText(), rule);
-        assertEquals(CaseClassifier.REASON_UNPROVIDED_BACKEND, entry.path("reason").asText(), rule);
-        found.merge(rule.substring(0, rule.indexOf('-')), 1, Integer::sum);
-        if (rule.equals("BT-D6a")) found.merge(rule, 1, Integer::sum);
-      }
-      if (rule.equals("MEM-2")
-          && entry.path("case_id").asText().equals("memory-store-shared-configuration")) {
-        mem2HasSharedConfiguration = true;
-      }
-    }
-    for (String key : List.of("SQ", "SPN", "BT", "BT-D6a")) {
-      assertTrue(found.getOrDefault(key, 0) >= 1, key);
-    }
-    assertTrue(mem2HasSharedConfiguration);
   }
 
   private static void assertPassed(ConformanceCase scene) {

@@ -3,7 +3,10 @@
   "docs_root": ".",
   "storages": [
     "memory",
-    "dynamodb"
+    "dynamodb",
+    "sqlite",
+    "spanner",
+    "bigtable"
   ],
   "extra_documents": [],
   "moved": {

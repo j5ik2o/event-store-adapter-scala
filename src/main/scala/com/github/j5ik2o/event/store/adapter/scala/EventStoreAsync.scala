@@ -8,7 +8,10 @@ import com.github.j5ik2o.event.store.adapter.java.core.{
   SnapshotEnvelope,
 }
 import com.github.j5ik2o.event.store.adapter.java.dynamodb.{DynamoDbEventStore, DynamoDbTableConfig}
+import com.github.j5ik2o.event.store.adapter.java.bigtable.{BigtableEventStore, BigtableStorage}
 import com.github.j5ik2o.event.store.adapter.java.memory.{MemoryEventStore, MemoryStorage}
+import com.github.j5ik2o.event.store.adapter.java.spanner.{SpannerEventStore, SpannerStorage}
+import com.github.j5ik2o.event.store.adapter.java.sqlite.{SqliteEventStore, SqliteStorage}
 import com.github.j5ik2o.event.store.adapter.scala.internal.{JavaAsyncEventStoreAdapter, JavaInterop}
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
 
@@ -44,6 +47,26 @@ object EventStoreAsync {
     config: EventStoreConfig[P, A],
   )(implicit ec: ExecutionContext): Future[EventStoreAsync[P, A]] =
     JavaInterop.future(DynamoDbEventStore.createAsync(client, tables, config)).map(new JavaAsyncEventStoreAdapter(_))
+
+  /**
+   * SQLite completes on the calling thread; the caller closes the storage. / SQLiteの生成は呼出スレッドで完了します。保存先は呼出元が閉じます。
+   */
+  def ofSqlite[P, A](storage: SqliteStorage, config: EventStoreConfig[P, A]): Future[EventStoreAsync[P, A]] =
+    Future.fromTry(JavaInterop.attempt(new JavaAsyncEventStoreAdapter(SqliteEventStore.createAsync(storage, config))))
+
+  /**
+   * Spanner completes on the calling thread; the caller owns the Spanner client. /
+   * Spannerの生成は呼出スレッドで完了します。クライアントは呼出元が所有します。
+   */
+  def ofSpanner[P, A](storage: SpannerStorage, config: EventStoreConfig[P, A]): Future[EventStoreAsync[P, A]] =
+    Future.fromTry(JavaInterop.attempt(new JavaAsyncEventStoreAdapter(SpannerEventStore.createAsync(storage, config))))
+
+  /**
+   * Bigtable completes on the calling thread; the caller owns the Bigtable clients. /
+   * Bigtableの生成は呼出スレッドで完了します。クライアントは呼出元が所有します。
+   */
+  def ofBigtable[P, A](storage: BigtableStorage, config: EventStoreConfig[P, A]): Future[EventStoreAsync[P, A]] =
+    Future.fromTry(JavaInterop.attempt(new JavaAsyncEventStoreAdapter(BigtableEventStore.createAsync(storage, config))))
 }
 
 /**
