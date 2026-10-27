@@ -4,7 +4,7 @@
 
 ## 配置
 
-Scalaの公開生成と4操作が委譲するJava DynamoDB本体の配置です。Java依存は開発版の `5.0.2-SNAPSHOT`（DynamoDBの配置は `5.0.1` と同じ）、[共通契約 v5](https://github.com/j5ik2o/event-store-adapter/blob/main/docs/spec/README.md)に従います（メジャーの番号 5 は、共通契約の版と同じです）。配布適合データは1.3.0です。保存する `layout_version` は **1** で、これらとは別の配置番号です。
+Scalaの公開生成と4操作が委譲するJava DynamoDB本体の配置です。Java依存は `5.1.0`（DynamoDBの配置は `5.0.1` と同じ）、[共通契約 v5](https://github.com/j5ik2o/event-store-adapter/blob/main/docs/spec/README.md)に従います（メジャーの番号 5 は、共通契約の版と同じです）。配布適合データは1.3.0です。保存する `layout_version` は **1** で、これらとは別の配置番号です。
 
 ### テーブルの準備
 

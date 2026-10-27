@@ -2,7 +2,7 @@
 
 # Spanner の保存先のスキーマ
 
-`EventStore.ofSpanner` と `EventStoreAsync.ofSpanner` が使う配置です。これらは `com.github.j5ik2o.event.store.adapter.java.spanner` の Java の保存先を包みます。Java の依存は開発版の `5.0.2-SNAPSHOT` で、旧版の `5.0.1` にはこの保存先がありません。[共通契約 v5](https://github.com/j5ik2o/event-store-adapter/blob/main/docs/spec/README.md) と [Spanner プロファイル](https://github.com/j5ik2o/event-store-adapter/blob/main/docs/spec/storage/spanner.md) に従います。適合データは 1.3.0 です。保存する `layout_version` は **1** で、保存形式の別の番号です。
+`EventStore.ofSpanner` と `EventStoreAsync.ofSpanner` が使う配置です。これらは `com.github.j5ik2o.event.store.adapter.java.spanner` の Java の保存先を包みます。Java の依存は `5.1.0` で、旧版の Java `5.0.1` にはこの保存先がありません。[共通契約 v5](https://github.com/j5ik2o/event-store-adapter/blob/main/docs/spec/README.md) と [Spanner プロファイル](https://github.com/j5ik2o/event-store-adapter/blob/main/docs/spec/storage/spanner.md) に従います。適合データは 1.3.0 です。保存する `layout_version` は **1** で、保存形式の別の番号です。
 
 公開する生成入口は [README](../README.ja.md)、版の違いは [MIGRATION_GUIDE](MIGRATION_GUIDE.ja.md) を参照してください。
 

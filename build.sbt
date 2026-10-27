@@ -51,9 +51,6 @@ def extraFlags(scalaVer: String): Seq[String] =
     case _ => Nil
   }
 ThisBuild / scalacOptions ++= commonFlags ++ extraFlags(scalaVersion.value)
-ThisBuild / resolvers ++= Seq(
-  "Sonatype Snapshots" at "https://central.sonatype.com/repository/maven-snapshots/",
-)
 ThisBuild / semanticdbEnabled := true
 ThisBuild / semanticdbVersion := scalafixSemanticdb.revision
 ThisBuild / Test / publishArtifact := false
