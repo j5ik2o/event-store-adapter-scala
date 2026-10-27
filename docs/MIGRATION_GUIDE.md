@@ -2,7 +2,7 @@
 
 ## Overview
 
-This guide covers migrating the Scala 1.x public API and stored data. This release is Scala 5.0.1 and uses Java `5.0.1`. This library follows [common contract v5](https://github.com/j5ik2o/event-store-adapter/blob/main/docs/spec/README.md); its major version 5 matches the contract revision. Conformance data 1.3.0 and DynamoDB `layout_version=1` are separate version numbers.
+This guide covers migrating the Scala 1.x public API and stored data. This release is Scala 5.0.1 and uses the Java development build `5.0.2-SNAPSHOT`. This library follows [common contract v5](https://github.com/j5ik2o/event-store-adapter/blob/main/docs/spec/README.md); its major version 5 matches the contract revision. Conformance data 1.3.0 and DynamoDB `layout_version=1` are separate version numbers.
 
 ## Code changes
 
@@ -20,6 +20,7 @@ This guide covers migrating the Scala 1.x public API and stored data. This relea
 | `getLatestSnapshotById(Class, id)` | `getLatestSnapshotById(id)` returning two levels of optionality |
 | `getEventsByIdSinceSequenceNumber(Class, id, start)` | `getEventsByIdSinceSeqNr(id, start)` returning complete envelopes |
 | Old read/write/deserialization exceptions | The five Java `core` exception categories; deserialization also uses `SerializationException` |
+| (not available in 1.x) | `EventStore.ofSqlite` / `ofSpanner` / `ofBigtable` and the `EventStoreAsync` counterparts, taking a storage the caller opened |
 
 Bind payload and aggregate-state serializers at creation. Serialize domain content only; put the aggregate identifier, sequence, event time and manifest in their envelope fields. The library does not interpret manifest values. Use verified type names and identifier values; do not infer them from the previous string representation.
 
@@ -36,6 +37,16 @@ Configure `RetentionPolicy.none()`, `delete(n)` or, for DynamoDB, `ttl(n, graceS
 Retention failure after commit preserves write success and uses the separate log/listener path with the original cause. Java owns the storage operations and retries. SDK clients remain caller-owned and caller-closed.
 
 ## Data migration
+
+### New storages: SQLite, Spanner and Bigtable
+
+The 1.x releases had no SQLite, Spanner or Bigtable storage, so there is no stored data to migrate and this guide provides no migration tool for them. Start with an empty store, as follows.
+
+1. SQLite: call `SqliteStorage.initialize(file, settings)` once for a new file, then open it with `SqliteStorage.open(file, settings)` on every launch and pass it to `EventStore.ofSqlite` or `EventStoreAsync.ofSqlite`.
+2. Spanner: create the five tables and the configuration row outside the library ([Spanner schema](SPANNER_DATABASE_SCHEMA.md)), then call `SpannerStorage.open(client, settings)` and `EventStore.ofSpanner` or `EventStoreAsync.ofSpanner`.
+3. Bigtable: create the two tables outside the library ([Bigtable schema](BIGTABLE_DATABASE_SCHEMA.md)), call `BigtableStorage.initialize(data, settings)` once, then open with `BigtableStorage.open(data, admin, settings)` on every launch and pass it to `EventStore.ofBigtable` or `EventStoreAsync.ofBigtable`.
+
+On a restart, open the same file or tables again without initializing. The caller owns and closes the storage and clients. To move existing DynamoDB or Memory data into one of them, use the manual rewrite below, writing new envelopes through the new storage.
 
 ### Manual data rewrite
 

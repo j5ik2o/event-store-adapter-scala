@@ -8,7 +8,10 @@ import com.github.j5ik2o.event.store.adapter.java.core.{
   SnapshotEnvelope,
 }
 import com.github.j5ik2o.event.store.adapter.java.dynamodb.{DynamoDbEventStore, DynamoDbTableConfig}
+import com.github.j5ik2o.event.store.adapter.java.bigtable.{BigtableEventStore, BigtableStorage}
 import com.github.j5ik2o.event.store.adapter.java.memory.{MemoryEventStore, MemoryStorage}
+import com.github.j5ik2o.event.store.adapter.java.spanner.{SpannerEventStore, SpannerStorage}
+import com.github.j5ik2o.event.store.adapter.java.sqlite.{SqliteEventStore, SqliteStorage}
 import com.github.j5ik2o.event.store.adapter.scala.internal.{JavaEventStoreAdapter, JavaInterop}
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient
 
@@ -40,6 +43,27 @@ object EventStore {
     config: EventStoreConfig[P, A],
   ): Try[EventStore[P, A]] =
     JavaInterop.attempt(new JavaEventStoreAdapter(DynamoDbEventStore.create(client, tables, config)))
+
+  /**
+   * Wraps a storage the caller opened with `SqliteStorage.open`; the caller closes it. / 呼出元が `SqliteStorage.open`
+   * で開いた保存先を包みます。閉じるのは呼出元です。
+   */
+  def ofSqlite[P, A](storage: SqliteStorage, config: EventStoreConfig[P, A]): Try[EventStore[P, A]] =
+    JavaInterop.attempt(new JavaEventStoreAdapter(SqliteEventStore.create(storage, config)))
+
+  /**
+   * Wraps a storage the caller opened with `SpannerStorage.open`; the caller owns the Spanner client. / 呼出元が
+   * `SpannerStorage.open` で開いた保存先を包みます。Spannerクライアントは呼出元が所有します。
+   */
+  def ofSpanner[P, A](storage: SpannerStorage, config: EventStoreConfig[P, A]): Try[EventStore[P, A]] =
+    JavaInterop.attempt(new JavaEventStoreAdapter(SpannerEventStore.create(storage, config)))
+
+  /**
+   * Wraps a storage the caller opened with `BigtableStorage.open`; the caller owns the Bigtable clients. / 呼出元が
+   * `BigtableStorage.open` で開いた保存先を包みます。Bigtableクライアントは呼出元が所有します。
+   */
+  def ofBigtable[P, A](storage: BigtableStorage, config: EventStoreConfig[P, A]): Try[EventStore[P, A]] =
+    JavaInterop.attempt(new JavaEventStoreAdapter(BigtableEventStore.create(storage, config)))
 }
 
 /**

@@ -22,7 +22,7 @@ The facts below come from `build.sbt`, `project/build.properties` and `.github/w
 - sbt (`sbt.version = 1.13.0` in `project/build.properties`) and a JDK. CI runs the tests on JDK 11, 17 and 19, and the `lint` job on JDK 25 (Temurin).
 - The project is cross-built for Scala 2.13.18 and 3.6.4. Select a version with `sbt ++2.13.18 ...` or `sbt ++3.6.4 ...`, or run every version with the `+` prefix.
 - Python 3 is needed to run the documentation and conformance data checks. `tools/user-docs/check.py` requires Python 3.10 or later.
-- Docker is needed for the DynamoDB Local tests (see [README](README.md#conformance)).
+- Docker is needed for the DynamoDB Local, Cloud Spanner emulator and Cloud Bigtable emulator tests, which use pinned images (see [README](README.md#conformance)). The SQLite tests use a temporary local file and need no Docker. Pull the two emulator images before running `sbt test` to keep the first run short.
 - Tests run with `TEST_TIME_FACTOR: 3` in CI.
 
 ## Checks

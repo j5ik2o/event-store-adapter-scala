@@ -72,10 +72,12 @@ jobs:
         jdk: [ 11, 17, 19 ]
         scala: [ 2.13.18, 3.6.4 ]
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 30
     needs: lint
     env:
       TEST_TIME_FACTOR: 3
+      # Re-resolve the Java 5.0.2-SNAPSHOT development build instead of trusting a stale cache entry.
+      COURSIER_TTL: 0
     steps:
       - uses: actions/checkout@v7
         with: { fetch-depth: 0 }
@@ -85,6 +87,10 @@ jobs:
           java-version: ${{ matrix.jdk }}
           cache: 'sbt'
       - uses: sbt/setup-sbt@v1
+      - name: Pull the pinned Spanner and Bigtable emulator images
+        run: |
+          docker pull "gcr.io/cloud-spanner-emulator/emulator:1.5.58@sha256:c6f3402f2599684f295a0fdefb6fbbbfb18a0e43e309ff5456ccb452a4570a79"
+          docker pull "gcr.io/google.com/cloudsdktool/google-cloud-cli@sha256:8d8573471c489a409f03891d2c24d177fa531276184f7002b9a2d853d1b3ed54"
       - name: sbt test
         run: sbt -v ++${{ matrix.scala }} test
       - name: Upload conformance report

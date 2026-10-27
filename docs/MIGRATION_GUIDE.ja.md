@@ -4,7 +4,7 @@
 
 ## 概要
 
-この案内は、Scala 1.xの公開操作と保存データの移行を説明します。Scalaの成果物は5.0.1で、Java `5.0.1` に依存します。[共通契約 v5](https://github.com/j5ik2o/event-store-adapter/blob/main/docs/spec/README.md)に従います。メジャーの番号 5 は、共通契約の版と同じです。適合テストデータ1.3.0とDynamoDBの`layout_version=1`は別の番号です。
+この案内は、Scala 1.xの公開操作と保存データの移行を説明します。Scalaの成果物は5.0.1で、Javaの開発版 `5.0.2-SNAPSHOT` に依存します。[共通契約 v5](https://github.com/j5ik2o/event-store-adapter/blob/main/docs/spec/README.md)に従います。メジャーの番号 5 は、共通契約の版と同じです。適合テストデータ1.3.0とDynamoDBの`layout_version=1`は別の番号です。
 
 ## コードの変更
 
@@ -22,6 +22,7 @@
 | `getLatestSnapshotById(Class, id)` | 二段の不存在を返す`getLatestSnapshotById(id)` |
 | `getEventsByIdSinceSequenceNumber(Class, id, start)` | 全封筒を返す`getEventsByIdSinceSeqNr(id, start)` |
 | 旧読取・書込・逆直列化の例外 | Javaの`core`の5分類の例外。逆直列化の失敗も`SerializationException` |
+| （1.xにはなし） | `EventStore.ofSqlite`・`ofSpanner`・`ofBigtable`と、対応する`EventStoreAsync`。呼出元が開いた保存先を渡す |
 
 イベントと集約状態のシリアライザは生成時に決めます。直列化するのはドメイン内容だけです。集約識別子、番号、発生時刻、manifestは封筒に分けます。manifestはライブラリで解釈しません。型名と識別子の値は確認済みの対応を使い、旧文字列から推測しません。
 
@@ -38,6 +39,16 @@
 確定後の保持失敗は書込み成功を変えず、別のログ・通知経路で元原因を知らせます。保存と再試行はJavaが所有し、クライアントは利用者が所有・終了します。
 
 ## データの移行
+
+### 新しい保存先: SQLite・Spanner・Bigtable
+
+1.x系にはSQLite・Spanner・Bigtableの保存先がなかったため、移すデータはなく、この案内に移行ツールはありません。空のストアから次のように使い始めます。
+
+1. SQLite: 新しいファイルに`SqliteStorage.initialize(file, settings)`を1回呼び、以後は起動のたびに`SqliteStorage.open(file, settings)`で開いて、`EventStore.ofSqlite`または`EventStoreAsync.ofSqlite`へ渡します。
+2. Spanner: 5つの表と設定行をライブラリの外で作成し（[Spanner のスキーマ](SPANNER_DATABASE_SCHEMA.ja.md)）、`SpannerStorage.open(client, settings)`の後で`EventStore.ofSpanner`または`EventStoreAsync.ofSpanner`を呼びます。
+3. Bigtable: 2つの表をライブラリの外で作成し（[Bigtable のスキーマ](BIGTABLE_DATABASE_SCHEMA.ja.md)）、`BigtableStorage.initialize(data, settings)`を1回呼び、以後は起動のたびに`BigtableStorage.open(data, admin, settings)`で開いて、`EventStore.ofBigtable`または`EventStoreAsync.ofBigtable`へ渡します。
+
+再起動では、初期化せずに同じファイルまたは表を開き直します。保存先とクライアントの所有と終了は呼出元です。既存のDynamoDBやMemoryのデータをこれらへ移すときは、次の手順で新しい保存先に新封筒を書き直します。
 
 ### 旧データを書き直す手順
 
