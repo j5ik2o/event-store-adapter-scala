@@ -163,16 +163,19 @@ def openSqlite(file: Path): SqliteStorage = SqliteStorage.open(file, sqliteSetti
 // First launch
 initializeSqlite(file)
 val storage = openSqlite(file)
-val store = EventStore.ofSqlite(storage, AccountExample.config).get
-store.persistEvent(AccountExample.event(id, 1L, "Alice")).get
-storage.close()
+try {
+  val store = EventStore.ofSqlite(storage, AccountExample.config).get
+  store.persistEvent(AccountExample.event(id, 1L, "Alice")).get
+} finally storage.close()
 
 // Restart: open the same file again; do not call initialize.
 val restarted = openSqlite(file)
-val reopened = EventStore.ofSqlite(restarted, AccountExample.config).get
-AccountExample.restore(reopened, id).get // Some("Alice")
-reopened.persistEvent(AccountExample.event(id, 2L, "Bob")).get
-val asyncReopened = EventStoreAsync.ofSqlite(restarted, AccountExample.config) // Future
+try {
+  val reopened = EventStore.ofSqlite(restarted, AccountExample.config).get
+  AccountExample.restore(reopened, id).get // Some("Alice")
+  reopened.persistEvent(AccountExample.event(id, 2L, "Bob")).get
+  val asyncReopened = EventStoreAsync.ofSqlite(restarted, AccountExample.config) // Future
+} finally restarted.close()
 ```
 
 ### Spanner

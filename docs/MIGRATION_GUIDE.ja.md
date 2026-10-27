@@ -48,18 +48,26 @@
 2. Spanner: 5つの表と設定行をライブラリの外で作成し（[Spanner のスキーマ](SPANNER_DATABASE_SCHEMA.ja.md)）、`SpannerStorage.open(client, settings)`の後で`EventStore.ofSpanner`または`EventStoreAsync.ofSpanner`を呼びます。
 3. Bigtable: 2つの表をライブラリの外で作成し（[Bigtable のスキーマ](BIGTABLE_DATABASE_SCHEMA.ja.md)）、`BigtableStorage.initialize(data, settings)`を1回呼び、以後は起動のたびに`BigtableStorage.open(data, admin, settings)`で開いて、`EventStore.ofBigtable`または`EventStoreAsync.ofBigtable`へ渡します。
 
-再起動では、初期化せずに同じファイルまたは表を開き直します。保存先とクライアントの所有と終了は呼出元です。既存のDynamoDBやMemoryのデータをこれらへ移すときは、次の手順で新しい保存先に新封筒を書き直します。
+再起動では、初期化せずに同じファイルまたは表を開き直します。保存先とクライアントの所有と終了は呼出元です。既存のDynamoDBやMemoryのデータをこれらへ移すときは、次の手順で書き直します。変換の手順はどの移行先にも共通で、その後に選んだ移行先の保存先を用意して開き、新封筒をそこへ書きます。
 
 ### 旧データを書き直す手順
 
-新版は新配置を読みます。移行は、旧版による読取り、アプリケーションの明示変換、独立した新表への新封筒による書直しで行います。
+新版は新配置を読みます。移行は、旧版による読取り、アプリケーションの明示変換、独立した新しいストア（独立した新表、SQLiteでは新しいファイル）への新封筒による書直しで行います。
 
 1. 旧保存先への書込みを制御し、旧データと確認済みのドメイン・スキーマ情報を移行中も保持します。
 2. 旧Scala・Javaライブラリと既存シリアライザで、集約ごとの全イベントを読みます。旧スナップショットを使う場合は、その状態と番号を確認します。
 3. 旧識別子を確認済みの型名と値へ対応付けます。ペイロードと封筒メタデータを分け、確認済みの時刻とスキーマに基づくmanifestを設定します。書込み前に、番号1から全イベントを連続して書けることを確認します。欠番や情報欠落は実データから解決し、推測値を挿入しません。
-4. [新スキーマ](DYNAMODB_DATABASE_SCHEMA.ja.md)で独立したjournal・snapshot・headの3表を作ります。旧表と新表を混在させません。期限付き保持を使う場合だけsnapshot表の`ttl`を有効にします。
-5. `EventStore.ofDynamoDB(client, tables, config)`の`Try`、または`EventStoreAsync.ofDynamoDB(asyncClient, tables, config)`の生成Futureを確認します。生成入口が同じ保存先識別子と配置番号を持つ3設定項目を初期化・照合します。
-6. 番号を昇順・連続にして`persistEvent`で書きます。変換したスナップショットは、同番号のイベントを追記するときに`persistEventAndSnapshot`で保存します。スナップショットだけの書込みはありません。旧version・シャードキー・メタデータ入りJSONをそのままコピーしません。
+
+続いて、選んだ移行先の保存先を用意して開きます。新しい別のストアを使い、旧表や旧ファイルには書き込みません。
+
+- DynamoDB: [新スキーマ](DYNAMODB_DATABASE_SCHEMA.ja.md)で独立したjournal・snapshot・headの3表を作ります。旧表と新表を混在させません。期限付き保持を使う場合だけsnapshot表の`ttl`を有効にします。`EventStore.ofDynamoDB(client, tables, config)`の`Try`、または`EventStoreAsync.ofDynamoDB(asyncClient, tables, config)`の生成Futureを確認します。生成入口が同じ保存先識別子と配置番号を持つ3設定項目を初期化・照合します。
+- SQLite: 新しいファイルを使います（[SQLite のスキーマ](SQLITE_DATABASE_SCHEMA.ja.md)）。`SqliteStorage.initialize(file, settings)`を1回呼び、`SqliteStorage.open(file, settings)`で開いて`EventStore.ofSqlite`または`EventStoreAsync.ofSqlite`へ渡します。書直しが終わったら保存先を閉じます。
+- Spanner: 5つの新しい表と設定行をライブラリの外で作成し（[Spanner のスキーマ](SPANNER_DATABASE_SCHEMA.ja.md)）、他のデータが使っていない表の接頭辞を使います。`SpannerStorage.open(client, settings)`で開いて`EventStore.ofSpanner`または`EventStoreAsync.ofSpanner`へ渡します。
+- Bigtable: 2つの新しい表をライブラリの外で作成し（[Bigtable のスキーマ](BIGTABLE_DATABASE_SCHEMA.ja.md)）、`BigtableStorage.initialize(data, settings)`を1回呼び、`BigtableStorage.open(data, admin, settings)`で開いて`EventStore.ofBigtable`または`EventStoreAsync.ofBigtable`へ渡します。
+
+作成したストアへ変換後のデータを書きます。
+
+4. 番号を昇順・連続にして`persistEvent`で書きます。変換したスナップショットは、同番号のイベントを追記するときに`persistEventAndSnapshot`で保存します。スナップショットだけの書込みはありません。旧version・シャードキー・メタデータ入りJSONをそのままコピーしません。
 
 `Instant`へ変換する前に、旧データの実際の時刻表現と精度を確認します。ミリ秒だけを持つ場合は、そのミリ秒を正確に表します。旧時刻単位を推測せず、失われたナノ秒、型情報、識別子を推測値や現在時刻で補いません。
 
@@ -69,5 +77,5 @@
 
 ### 読み戻しと切り替え
 
-7. 全封筒を読み戻し、新公開操作で復元します。確認済みの変換ペイロード、番号、時刻、manifest、状態と比較します。分類された失敗を空結果で隠しません。
-8. 書直しの検証後にアプリケーションの読書き先を切り替えます。旧表を削除する時期は利用者が決め、この案内から削除は実行しません。
+5. 全封筒を読み戻し、新公開操作で復元します。確認済みの変換ペイロード、番号、時刻、manifest、状態と比較します。分類された失敗を空結果で隠しません。
+6. 書直しの検証後にアプリケーションの読書き先を切り替えます。旧表を削除する時期は利用者が決め、この案内から削除は実行しません。
