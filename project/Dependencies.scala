@@ -19,9 +19,9 @@ object Dependencies {
   }
 
   object testSupport {
-    val junitApi = "org.junit.jupiter" % "junit-jupiter-api" % "5.14.4"
-    val junitEngine = "org.junit.jupiter" % "junit-jupiter-engine" % "5.14.4"
-    val junitLauncher = "org.junit.platform" % "junit-platform-launcher" % "1.14.4"
+    val junitApi = "org.junit.jupiter" % "junit-jupiter-api" % "6.1.3"
+    val junitEngine = "org.junit.jupiter" % "junit-jupiter-engine" % "6.1.3"
+    val junitLauncher = "org.junit.platform" % "junit-platform-launcher" % "6.1.3"
     val testcontainers = "org.testcontainers" % "testcontainers" % "2.0.5"
     val jsonSchema = "com.networknt" % "json-schema-validator" % "2.0.8"
     val apacheClient = "software.amazon.awssdk" % "apache5-client" % "2.57.3"
