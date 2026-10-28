@@ -6,7 +6,7 @@ ThisBuild / organizationName := "io.github.j5ik2o"
 ThisBuild / homepage := Some(url("https://github.com/j5ik2o/event-store-adapter-scala"))
 ThisBuild / licenses := List(
   "MIT" -> url("https://opensource.org/license/mit/"),
-  "Apache-2.0" -> url("https://www.apache.org/licenses/LICENSE-2.0")
+  "Apache-2.0" -> url("https://www.apache.org/licenses/LICENSE-2.0"),
 )
 ThisBuild / developers := List(
   Developer(
