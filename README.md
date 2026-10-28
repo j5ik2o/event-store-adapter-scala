@@ -1,8 +1,15 @@
 # event-store-adapter-scala
 
-[![CI](https://github.com/j5ik2o/event-store-adapter-scala/actions/workflows/ci.yml/badge.svg)](https://github.com/j5ik2o/event-store-adapter-scala/actions/workflows/ci.yml)
-[![Maven Central](https://maven-badges.herokuapp.com/maven-central/io.github.j5ik2o/event-store-adapter-scala_2.13/badge.svg)](https://maven-badges.herokuapp.com/maven-central/io.github.j5ik2o/event-store-adapter-scala_2.13)
-[![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![CI](https://github.com/j5ik2o/event-store-adapter-scala/actions/workflows/ci.yml/badge.svg?branch=main&event=push)](https://github.com/j5ik2o/event-store-adapter-scala/actions/workflows/ci.yml?query=branch%3Amain)
+[![Maven Central Scala 2.13](https://img.shields.io/maven-central/v/io.github.j5ik2o/event-store-adapter-scala_2.13.svg?label=Scala%202.13)](https://central.sonatype.com/artifact/io.github.j5ik2o/event-store-adapter-scala_2.13)
+[![Maven Central Scala 3](https://img.shields.io/maven-central/v/io.github.j5ik2o/event-store-adapter-scala_3.svg?label=Scala%203)](https://central.sonatype.com/artifact/io.github.j5ik2o/event-store-adapter-scala_3)
+[![javadoc](https://img.shields.io/maven-central/v/io.github.j5ik2o/event-store-adapter-scala_3.svg?label=javadoc)](https://javadoc.io/doc/io.github.j5ik2o/event-store-adapter-scala_3)
+[![Scala](https://img.shields.io/badge/Scala-2.13%20%7C%203-red.svg)](https://github.com/j5ik2o/event-store-adapter-scala/blob/main/build.sbt)
+[![Java](https://img.shields.io/badge/Java-11%2B-blue.svg)](https://github.com/j5ik2o/event-store-adapter-scala/blob/main/build.sbt)
+[![Contract v5](https://img.shields.io/badge/contract-v5-blueviolet.svg)](https://github.com/j5ik2o/event-store-adapter/tree/contract-v5/docs/spec)
+[![Storages](https://img.shields.io/badge/storages-memory%20%7C%20DynamoDB%20%7C%20SQLite%20%7C%20Spanner%20%7C%20Bigtable-informational.svg)](https://github.com/j5ik2o/event-store-adapter/tree/main/docs/spec/storage)
+[![Renovate](https://img.shields.io/badge/renovate-enabled-brightgreen.svg)](https://renovatebot.com)
+[![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](https://github.com/j5ik2o/event-store-adapter-scala#license)
 
 ## Overview
 
@@ -277,4 +284,4 @@ Docker is required for the pinned DynamoDB Local 3.3.1, Cloud Spanner emulator a
 
 ## License
 
-MIT License. See [LICENSE](LICENSE).
+Dual-licensed under MIT or Apache-2.0 (`MIT OR Apache-2.0`), at your option. See [LICENSE-MIT](LICENSE-MIT) and [LICENSE-APACHE](LICENSE-APACHE).
