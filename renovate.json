@@ -20,6 +20,18 @@
       "enabled": false
     },
     {
+      "description": "json-schema-validator 3.x requires Java 17 and Jackson 3. The build still compiles and tests on Java 11 with Jackson 2, so keep major updates blocked while Java 11 verification is required.",
+      "matchPackageNames": ["com.networknt:json-schema-validator"],
+      "matchUpdateTypes": ["major"],
+      "enabled": false
+    },
+    {
+      "description": "JUnit 6+ requires Java 17 at test runtime. The test matrix still includes JDK 11, so keep JUnit major updates blocked while Java 11 tests are required.",
+      "matchPackageNames": ["/^org\\.junit\\./"],
+      "matchUpdateTypes": ["major"],
+      "enabled": false
+    },
+    {
       "description": "takt is pinned to the same version across the event-store-adapter repositories and updated by the coordinator in all repositories at once (repository policy, chapter 8), so Renovate must not update it.",
       "matchDepNames": ["npm:takt"],
       "enabled": false
