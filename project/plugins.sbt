@@ -8,6 +8,6 @@ addSbtPlugin("com.github.sbt" % "sbt-pgp" % "2.3.2")
 
 addSbtPlugin("com.github.sbt" % "sbt-dynver" % "5.1.1")
 
-addSbtPlugin("com.typesafe.sbt" % "sbt-site" % "1.4.1")
-
-addSbtPlugin("com.typesafe.sbt" % "sbt-ghpages" % "0.6.3")
+// Do not re-add sbt-site or sbt-ghpages. sbt-ghpages pulls sbt-git 0.9.3, whose
+// JGit status runs at project load and fails in git linked worktrees because the
+// resolved JGit cannot read commondir. sbt-dynver derives the version from tags.
