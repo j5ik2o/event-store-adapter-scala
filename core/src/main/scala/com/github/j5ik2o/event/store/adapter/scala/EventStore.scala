@@ -37,6 +37,8 @@ object EventStore {
    * Validates configuration in three provisioned tables; the caller owns the client. /
    * 作成済み3表の設定を照合します。クライアントは呼出元が所有します。
    */
+  @deprecated("Use DynamoDbEventStores.of from the dynamodb module", "next")
+  @Deprecated
   def ofDynamoDB[P, A](
     client: DynamoDbClient,
     tables: DynamoDbTableConfig,
@@ -48,6 +50,8 @@ object EventStore {
    * Wraps a storage the caller opened with `SqliteStorage.open`; the caller closes it. / 呼出元が `SqliteStorage.open`
    * で開いた保存先を包みます。閉じるのは呼出元です。
    */
+  @deprecated("Use SqliteEventStores.of from the sqlite module", "next")
+  @Deprecated
   def ofSqlite[P, A](storage: SqliteStorage, config: EventStoreConfig[P, A]): Try[EventStore[P, A]] =
     JavaInterop.attempt(new JavaEventStoreAdapter(SqliteEventStore.create(storage, config)))
 
@@ -55,6 +59,8 @@ object EventStore {
    * Wraps a storage the caller opened with `SpannerStorage.open`; the caller owns the Spanner client. / 呼出元が
    * `SpannerStorage.open` で開いた保存先を包みます。Spannerクライアントは呼出元が所有します。
    */
+  @deprecated("Use SpannerEventStores.of from the spanner module", "next")
+  @Deprecated
   def ofSpanner[P, A](storage: SpannerStorage, config: EventStoreConfig[P, A]): Try[EventStore[P, A]] =
     JavaInterop.attempt(new JavaEventStoreAdapter(SpannerEventStore.create(storage, config)))
 
@@ -62,6 +68,8 @@ object EventStore {
    * Wraps a storage the caller opened with `BigtableStorage.open`; the caller owns the Bigtable clients. / 呼出元が
    * `BigtableStorage.open` で開いた保存先を包みます。Bigtableクライアントは呼出元が所有します。
    */
+  @deprecated("Use BigtableEventStores.of from the bigtable module", "next")
+  @Deprecated
   def ofBigtable[P, A](storage: BigtableStorage, config: EventStoreConfig[P, A]): Try[EventStore[P, A]] =
     JavaInterop.attempt(new JavaEventStoreAdapter(BigtableEventStore.create(storage, config)))
 }

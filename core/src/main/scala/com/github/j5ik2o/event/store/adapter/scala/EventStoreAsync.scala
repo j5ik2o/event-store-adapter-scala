@@ -41,6 +41,8 @@ object EventStoreAsync {
    * Connects Java's asynchronous configuration I/O without blocking; the caller owns the client. /
    * Javaの非同期設定照合へ待機せず接続します。クライアントは呼出元が所有します。
    */
+  @deprecated("Use DynamoDbEventStores.ofAsync from the dynamodb module", "next")
+  @Deprecated
   def ofDynamoDB[P, A](
     client: DynamoDbAsyncClient,
     tables: DynamoDbTableConfig,
@@ -51,6 +53,8 @@ object EventStoreAsync {
   /**
    * SQLite completes on the calling thread; the caller closes the storage. / SQLiteの生成は呼出スレッドで完了します。保存先は呼出元が閉じます。
    */
+  @deprecated("Use SqliteEventStores.ofAsync from the sqlite module", "next")
+  @Deprecated
   def ofSqlite[P, A](storage: SqliteStorage, config: EventStoreConfig[P, A]): Future[EventStoreAsync[P, A]] =
     Future.fromTry(JavaInterop.attempt(new JavaAsyncEventStoreAdapter(SqliteEventStore.createAsync(storage, config))))
 
@@ -58,6 +62,8 @@ object EventStoreAsync {
    * Spanner completes on the calling thread; the caller owns the Spanner client. /
    * Spannerの生成は呼出スレッドで完了します。クライアントは呼出元が所有します。
    */
+  @deprecated("Use SpannerEventStores.ofAsync from the spanner module", "next")
+  @Deprecated
   def ofSpanner[P, A](storage: SpannerStorage, config: EventStoreConfig[P, A]): Future[EventStoreAsync[P, A]] =
     Future.fromTry(JavaInterop.attempt(new JavaAsyncEventStoreAdapter(SpannerEventStore.createAsync(storage, config))))
 
@@ -65,6 +71,8 @@ object EventStoreAsync {
    * Bigtable completes on the calling thread; the caller owns the Bigtable clients. /
    * Bigtableの生成は呼出スレッドで完了します。クライアントは呼出元が所有します。
    */
+  @deprecated("Use BigtableEventStores.ofAsync from the bigtable module", "next")
+  @Deprecated
   def ofBigtable[P, A](storage: BigtableStorage, config: EventStoreConfig[P, A]): Future[EventStoreAsync[P, A]] =
     Future.fromTry(JavaInterop.attempt(new JavaAsyncEventStoreAdapter(BigtableEventStore.createAsync(storage, config))))
 }

@@ -14,7 +14,15 @@ import com.github.j5ik2o.event.store.adapter.java.dynamodb.DynamoDbTableConfig
 import com.github.j5ik2o.event.store.adapter.java.memory.MemoryStorage
 import com.github.j5ik2o.event.store.adapter.java.spanner.SpannerStorage
 import com.github.j5ik2o.event.store.adapter.java.sqlite.SqliteStorage
-import com.github.j5ik2o.event.store.adapter.scala.{EventStore, EventStoreAsync, SnapshotReadResult}
+import com.github.j5ik2o.event.store.adapter.scala.{
+  BigtableEventStores,
+  DynamoDbEventStores,
+  EventStore,
+  EventStoreAsync,
+  SnapshotReadResult,
+  SpannerEventStores,
+  SqliteEventStores,
+}
 import software.amazon.awssdk.services.dynamodb.{DynamoDbAsyncClient, DynamoDbClient}
 
 import java.util.{List => JavaList, Optional}
@@ -45,35 +53,35 @@ object PublicStoreBinding {
     storage: SqliteStorage,
     config: EventStoreConfig[P, A],
     asynchronous: Boolean): JavaEventStore[P, A] =
-    if (asynchronous) new AwaitingFacade(Await.result(EventStoreAsync.ofSqlite(storage, config), 30.seconds))
-    else new SyncFacade(EventStore.ofSqlite(storage, config).get)
+    if (asynchronous) new AwaitingFacade(Await.result(SqliteEventStores.ofAsync(storage, config), 30.seconds))
+    else new SyncFacade(SqliteEventStores.of(storage, config).get)
 
   def spanner[P, A](
     storage: SpannerStorage,
     config: EventStoreConfig[P, A],
     asynchronous: Boolean): JavaEventStore[P, A] =
-    if (asynchronous) new AwaitingFacade(Await.result(EventStoreAsync.ofSpanner(storage, config), 30.seconds))
-    else new SyncFacade(EventStore.ofSpanner(storage, config).get)
+    if (asynchronous) new AwaitingFacade(Await.result(SpannerEventStores.ofAsync(storage, config), 30.seconds))
+    else new SyncFacade(SpannerEventStores.of(storage, config).get)
 
   def bigtable[P, A](
     storage: BigtableStorage,
     config: EventStoreConfig[P, A],
     asynchronous: Boolean): JavaEventStore[P, A] =
-    if (asynchronous) new AwaitingFacade(Await.result(EventStoreAsync.ofBigtable(storage, config), 30.seconds))
-    else new SyncFacade(EventStore.ofBigtable(storage, config).get)
+    if (asynchronous) new AwaitingFacade(Await.result(BigtableEventStores.ofAsync(storage, config), 30.seconds))
+    else new SyncFacade(BigtableEventStores.of(storage, config).get)
 
   def dynamo[P, A](
     client: DynamoDbClient,
     tables: DynamoDbTableConfig,
     config: EventStoreConfig[P, A],
-  ): JavaEventStore[P, A] = new SyncFacade(EventStore.ofDynamoDB(client, tables, config).get)
+  ): JavaEventStore[P, A] = new SyncFacade(DynamoDbEventStores.of(client, tables, config).get)
 
   def dynamoAsync[P, A](
     client: DynamoDbAsyncClient,
     tables: DynamoDbTableConfig,
     config: EventStoreConfig[P, A],
   ): CompletableFuture[JavaAsyncEventStore[P, A]] =
-    completion(EventStoreAsync.ofDynamoDB(client, tables, config).map(store => new AsyncFacade(store)))
+    completion(DynamoDbEventStores.ofAsync(client, tables, config).map(store => new AsyncFacade(store)))
 
   private def snapshot[A](result: Option[SnapshotReadResult[A]]): Optional[JavaSnapshotReadResult[A]] =
     result

@@ -15,7 +15,8 @@ object Dependencies {
   import Versions._
 
   object j5ik2o {
-    val eventStoreAdapterJava = "io.github.j5ik2o" % "event-store-adapter-java" % "5.1.0"
+    def driver(name: String): ModuleID = "io.github.j5ik2o" % s"event-store-adapter-java-$name" % "5.2.0"
+    val eventStoreAdapterJava = "io.github.j5ik2o" % "event-store-adapter-java" % "5.2.0"
   }
 
   object testSupport {

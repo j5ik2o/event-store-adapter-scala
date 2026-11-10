@@ -8,7 +8,9 @@
     "spanner",
     "bigtable"
   ],
-  "extra_documents": [],
+  "extra_documents": [
+    "docs/driver-modules.md"
+  ],
   "moved": {
     "docs/DATABASE_SCHEMA.md": "docs/DYNAMODB_DATABASE_SCHEMA.md",
     "MIGRATION_GUIDE.md": "docs/MIGRATION_GUIDE.md"

@@ -21,12 +21,14 @@ To contribute, see [CONTRIBUTING](CONTRIBUTING.md).
 
 ## Installation
 
-The source is cross-built for Scala 2.13.18 and 3.6.4 and depends on `io.github.j5ik2o:event-store-adapter-java:5.1.0` from Maven Central. The SQLite, Spanner and Bigtable storages are available from the next Scala release, `5.1.0` (the earlier Scala `5.0.1` does not contain them). The Scala library itself is published to Maven Central. Older Scala artifacts expose the previous API. This library follows [common contract v5](https://github.com/j5ik2o/event-store-adapter/blob/main/docs/spec/README.md); its major version 5 matches the contract revision.
+The source is cross-built for Scala 2.13.18 and 3.6.4 and depends on the Java 5.2.0 storage modules from Maven Central. The SQLite, Spanner and Bigtable storages are available from the next Scala release, `5.1.0` (the earlier Scala `5.0.1` does not contain them). The Scala library itself is published to Maven Central. Older Scala artifacts expose the previous API. This library follows [common contract v5](https://github.com/j5ik2o/event-store-adapter/blob/main/docs/spec/README.md); its major version 5 matches the contract revision.
 
 ```scala
 val scalaAdapterVersion = "5.1.0"
 libraryDependencies += "io.github.j5ik2o" %% "event-store-adapter-scala" % scalaAdapterVersion
 ```
+
+Storage modules are split in this source tree. For selective dependencies and the new factories, see [Choose storage dependencies](docs/driver-modules.md).
 
 ## Quick start
 
