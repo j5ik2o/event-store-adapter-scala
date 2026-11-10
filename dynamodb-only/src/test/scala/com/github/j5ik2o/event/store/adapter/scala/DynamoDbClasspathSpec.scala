@@ -114,7 +114,7 @@ final class DynamoDbClasspathSpec extends AnyFreeSpec {
           .builder[Array[Byte]]()
           .aggregateId(AggregateId.of("Order", id))
           .seqNr(1L)
-          .occurredAt(Instant.parse("2025-11-10T05:46:40Z"))
+          .occurredAt(Instant.parse("2025-11-10T04:46:40Z"))
           .manifest("m")
           .payload(new Array[Byte](size))
           .build()
