@@ -118,12 +118,22 @@ final class DynamoDbClasspathSpec extends AnyFreeSpec {
           .manifest("m")
           .payload(new Array[Byte](size))
           .build()
+        def assertRejectedHeadAbsent(): Unit = {
+          val request = GetItemRequest
+            .builder()
+            .tableName("head")
+            .key(java.util.Collections.singletonMap("aid", AttributeValue.builder().s("Order-9").build()))
+            .consistentRead(true)
+            .build()
+          assert(!client.getItem(request).hasItem())
+        }
         syncStores.zipWithIndex.foreach { case (store, i) =>
           val e = event("sync" + i, 3)
           store.persistEvent(e).get
           assert(store.getEventsByIdSinceSeqNr(e.aggregateId(), 1L).get.map(_.seqNr()) == Seq(1L))
           val rejected = store.persistEvent(event("9", 409512)).failed.get
           assert(rejected.isInstanceOf[ContractViolationException], rejected.toString)
+          assertRejectedHeadAbsent()
           assert(store.getLatestSnapshotById(AggregateId.of("Order", "9")).get.isEmpty)
         }
         asyncStores.zipWithIndex.foreach { case (store, i) =>
@@ -131,6 +141,7 @@ final class DynamoDbClasspathSpec extends AnyFreeSpec {
           Await.result(store.persistEvent(e), 30.seconds)
           assert(Await.result(store.getEventsByIdSinceSeqNr(e.aggregateId(), 1L), 30.seconds).map(_.seqNr()) == Seq(1L))
           intercept[ContractViolationException](Await.result(store.persistEvent(event("9", 409512)), 30.seconds))
+          assertRejectedHeadAbsent()
         }
       } finally { async.close(); client.close() }
     } finally container.stop()

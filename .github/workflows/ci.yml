@@ -68,7 +68,7 @@ jobs:
         run: sbt -v lint
       - name: Verify driver dependency scopes
         run: |
-          sbt makePom
+          sbt '++2.13.18' makePom
           python3 tools/dependencies/verify_poms.py
   test:
     strategy:
