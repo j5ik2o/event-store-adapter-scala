@@ -54,6 +54,7 @@ def extraFlags(scalaVer: String): Seq[String] =
     case _ => Nil
   }
 ThisBuild / scalacOptions ++= commonFlags ++ extraFlags(scalaVersion.value)
+ThisBuild / exportJars := true
 ThisBuild / semanticdbEnabled := true
 ThisBuild / semanticdbVersion := scalafixSemanticdb.revision
 ThisBuild / Test / publishArtifact := false
@@ -80,13 +81,53 @@ ThisBuild / credentials += Credentials(Path.userHome / ".sbt" / "1.0" / "sonatyp
 ThisBuild / resolvers ++= Resolver.sonatypeOssRepos("staging")
 ThisBuild / resolvers ++= Resolver.sonatypeOssRepos("releases")
 
+lazy val core = (project in file("core"))
+  .settings(
+    name := "event-store-adapter-scala-core",
+    libraryDependencies ++= Seq(j5ik2o.driver("core")) ++
+      Seq("dynamodb", "spanner", "bigtable", "sqlite").map(j5ik2o.driver(_) % Provided),
+  )
+
+def driverProject(backend: String) = Project(backend, file(backend))
+  .dependsOn(core)
+  .settings(
+    name := s"event-store-adapter-scala-$backend",
+    libraryDependencies += j5ik2o.driver(backend),
+  )
+
+lazy val dynamodb = driverProject("dynamodb")
+lazy val spanner = driverProject("spanner")
+lazy val bigtable = driverProject("bigtable")
+lazy val sqlite = driverProject("sqlite")
+
+lazy val coreOnly = (project in file("core-only"))
+  .dependsOn(core)
+  .settings(
+    publish / skip := true,
+    libraryDependencies += scalatest.scalatest % Test,
+  )
+
+lazy val dynamodbOnly = (project in file("dynamodb-only"))
+  .dependsOn(core, dynamodb)
+  .settings(
+    publish / skip := true,
+    libraryDependencies ++= Seq(
+      scalatest.scalatest % Test,
+      testSupport.testcontainers % Test,
+      testSupport.apacheClient % Test,
+      testSupport.nettyClient % Test,
+    ),
+  )
+
 lazy val root = (project in file("."))
+  .aggregate(core, dynamodb, spanner, bigtable, sqlite, coreOnly, dynamodbOnly)
+  .dependsOn(core, dynamodb, spanner, bigtable, sqlite)
   .settings(
     name := "event-store-adapter-scala",
     libraryDependencies ++= Seq(
       scalatest.scalatest % Test,
       logback.classic % Test,
-      j5ik2o.eventStoreAdapterJava,
+      j5ik2o.eventStoreAdapterJava % Test,
       testSupport.junitApi % Test,
       testSupport.junitEngine % Test,
       testSupport.junitLauncher % Test,

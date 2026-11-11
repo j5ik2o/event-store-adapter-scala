@@ -242,7 +242,11 @@
     "occurred-at-nanoseconds",
     "dynamodb-events-over-one-megabyte",
     "dynamodb-single-aggregate-delete",
-    "dynamodb-single-aggregate-ttl"
+    "dynamodb-single-aggregate-ttl",
+    "dynamodb-item-size-event-under-limit",
+    "dynamodb-item-size-event-over-limit",
+    "dynamodb-item-size-snapshot-under-limit",
+    "dynamodb-item-size-snapshot-over-limit"
   ],
   "spanner": [
     "core-retention-zero",

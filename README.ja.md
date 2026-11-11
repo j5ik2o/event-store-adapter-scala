@@ -23,12 +23,14 @@ JavaのMemory・DynamoDB・SQLite・Spanner・Bigtableイベントストアを�
 
 ## インストール
 
-Scala 2.13.18・3.6.4で構築し、Maven Centralの`io.github.j5ik2o:event-store-adapter-java:5.1.0`に依存します。SQLite・Spanner・Bigtableの保存先は、次に公開するScala `5.1.0`から使えます（旧版のScala `5.0.1`にはありません）。Scalaのライブラリ自体はMaven Centralに公開しています。旧成果物の公開操作は旧契約です。[共通契約 v5](https://github.com/j5ik2o/event-store-adapter/blob/main/docs/spec/README.md)に従います。メジャーの番号 5 は、共通契約の版と同じです。
+Scala 2.13.18・3.6.4で構築し、Maven CentralのJava 5.2.0の保存先モジュールに依存します。SQLite・Spanner・Bigtableの保存先は、次に公開するScala `5.1.0`から使えます（旧版のScala `5.0.1`にはありません）。Scalaのライブラリ自体はMaven Centralに公開しています。旧成果物の公開操作は旧契約です。[共通契約 v5](https://github.com/j5ik2o/event-store-adapter/blob/main/docs/spec/README.md)に従います。メジャーの番号 5 は、共通契約の版と同じです。
 
 ```scala
 val scalaAdapterVersion = "5.1.0"
 libraryDependencies += "io.github.j5ik2o" %% "event-store-adapter-scala" % scalaAdapterVersion
 ```
+
+このソースツリーでは保存先ごとにモジュールを分割しています。依存の選択と新しい生成入口は[保存先依存の選び方](docs/driver-modules.md)を参照してください。
 
 ## はじめに
 
