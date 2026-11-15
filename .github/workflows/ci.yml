@@ -19,6 +19,9 @@ on:
       - 'tools/conformance/**'
       - 'tools/dependencies/**'
       - 'api-surface/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'scripts/**'
   pull_request:
     branches:
       - main
@@ -147,11 +150,26 @@ jobs:
                   print("| " + rule + " | " + " | ".join(str(counts[rule][l]) for l in labels) + " | " + note + " |")
               print()
           PY
+  aislop:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - name: Install npm dependencies
+        run: npm ci
+      - name: Run aislop checks
+        run: npm run check:aislop
+      - name: Run aislop checker tests
+        run: npm run test:aislop
   ci-success:
     name: CI Success
     runs-on: ubuntu-latest
     timeout-minutes: 2
-    needs: [lint, test, release-workflow]
+    needs: [lint, test, release-workflow, aislop]
     if: always()
     steps:
       - name: Check CI results
@@ -159,8 +177,9 @@ jobs:
           LINT_RESULT: ${{ needs.lint.result }}
           TEST_RESULT: ${{ needs.test.result }}
           RELEASE_WORKFLOW_RESULT: ${{ needs.release-workflow.result }}
+          AISLOP_RESULT: ${{ needs.aislop.result }}
         run: |
-          if [[ "$LINT_RESULT" != "success" || "$TEST_RESULT" != "success" || "$RELEASE_WORKFLOW_RESULT" != "success" ]]; then
-            echo "CI did not succeed: lint=$LINT_RESULT, test=$TEST_RESULT, release-workflow=$RELEASE_WORKFLOW_RESULT"
+          if [[ "$LINT_RESULT" != "success" || "$TEST_RESULT" != "success" || "$RELEASE_WORKFLOW_RESULT" != "success" || "$AISLOP_RESULT" != "success" ]]; then
+            echo "CI did not succeed: lint=$LINT_RESULT, test=$TEST_RESULT, release-workflow=$RELEASE_WORKFLOW_RESULT, aislop=$AISLOP_RESULT"
             exit 1
           fi
