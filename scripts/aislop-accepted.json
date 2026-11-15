@@ -1,0 +1,71 @@
+{
+  "engines": [
+    "format",
+    "lint",
+    "code-quality",
+    "ai-slop",
+    "security"
+  ],
+  "missingToolsAllowed": {
+    "ruff": "Scala 主体のリポジトリで Python は補助スクリプトのみであり、ruff は npm ci で導入する外部ツールではなく、このリポジトリの受け入れ対象にしていないため"
+  },
+  "accepted": [
+    {
+      "reason": "既存の課題: tools/user-docs/check.py のファイル長と関数長が aislop のしきい値を超えている。issue #930 は既存指摘の修正を範囲外としているため、現状のまま受け入れる",
+      "findings": [
+        {
+          "engine": "code-quality",
+          "rule": "complexity/file-too-large",
+          "file": "tools/user-docs/check.py",
+          "message": "File too large (limit: 400, flagged above 441 lines)"
+        },
+        {
+          "engine": "code-quality",
+          "rule": "complexity/function-too-long",
+          "file": "tools/user-docs/check.py",
+          "message": "Function too long (limit: 80, flagged above 88 lines)"
+        }
+      ]
+    },
+    {
+      "reason": "誤検出: Python の coding 宣言（# -*- coding: utf-8 -*-）を装飾的な区切りコメントと判定している。ファイル先頭の shebang に続く coding 宣言であり、装飾的な区切りではない",
+      "findings": [
+        {
+          "engine": "ai-slop",
+          "rule": "ai-slop/narrative-comment",
+          "file": ".github/create-release-note-body.py",
+          "message": "Narrative comment block (decorative separator)"
+        },
+        {
+          "engine": "ai-slop",
+          "rule": "ai-slop/narrative-comment",
+          "file": ".github/create-release-note-header.py",
+          "message": "Narrative comment block (decorative separator)"
+        },
+        {
+          "engine": "ai-slop",
+          "rule": "ai-slop/narrative-comment",
+          "file": ".github/next-semver.py",
+          "message": "Narrative comment block (decorative separator)"
+        },
+        {
+          "engine": "ai-slop",
+          "rule": "ai-slop/narrative-comment",
+          "file": ".github/semver-level.py",
+          "message": "Narrative comment block (decorative separator)"
+        }
+      ]
+    },
+    {
+      "reason": "意図的な CLI 出力: tools/dependencies/verify_poms.py は依存スコープ検証の CLI エントリポイントであり、結果を標準出力へ出す print は意図的な出力である。aislop のヘルプも CLI エントリポイントの print は無視してよいとしている",
+      "findings": [
+        {
+          "engine": "ai-slop",
+          "rule": "ai-slop/python-print-debug",
+          "file": "tools/dependencies/verify_poms.py",
+          "message": "`print()` in production code — usually a leftover debug statement."
+        }
+      ]
+    }
+  ]
+}

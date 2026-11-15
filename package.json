@@ -1,0 +1,12 @@
+{
+  "name": "event-store-adapter-scala-aislop-check",
+  "private": true,
+  "description": "aislop チェック専用の設定です。Scala のビルドには関与しません。",
+  "scripts": {
+    "check:aislop": "node scripts/aislop-check-bootstrap.mjs check",
+    "test:aislop": "node scripts/aislop-check-bootstrap.mjs test"
+  },
+  "devDependencies": {
+    "aislop": "0.20.1"
+  }
+}
