@@ -12,8 +12,10 @@ on:
       - 'project/build.properties'
       - '.github/workflows/ci.yml'
       - '.github/workflows/bump-version.yml'
-      - '.github/create-release-note-header.py'
-      - '.github/create-release-note-body.py'
+      - '.github/workflows/publish.yml'
+      - '.github/*.py'
+      - '.github/*.sh'
+      - '.github/quint/**'
       - '.github/tests/**'
       - 'conformance/**'
       - 'tools/conformance/**'
@@ -35,15 +37,54 @@ env:
 jobs:
   release-workflow:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
-      - name: Test version bump selection
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.15"
+      - name: Install the release tooling test dependencies
+        run: python3 -m pip install -r .github/tests/requirements.txt
+      - name: Test the release tooling
         run: python3 -m unittest discover -s .github/tests -v
       - name: Lint workflows
         uses: docker://rhysd/actionlint:1.7.12
         with:
           args: -shellcheck=
+  release-bundle:
+    name: Build the release bundle
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: 'temurin'
+          java-version: '25'
+          cache: 'sbt'
+      - uses: sbt/setup-sbt@v1
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.15"
+      # 使い捨ての鍵で、publish.yml と同じ central-bundle.sh を流し、192 ファイルと 48 の署名、
+      # `+print version` の照合を確かめる（秘密の値は使わない）
+      - name: Build and check the bundle with a throwaway key
+        run: bash .github/central-bundle-ci.sh
+  release-model:
+    name: Check the release model
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+      - name: Check the Quint model of the release path
+        timeout-minutes: 5
+        env:
+          QUINT: npx --yes @informalsystems/quint@0.32.0
+        run: bash .github/quint/run-quint.sh ci
   lint:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -169,7 +210,7 @@ jobs:
     name: CI Success
     runs-on: ubuntu-latest
     timeout-minutes: 2
-    needs: [lint, test, release-workflow, aislop]
+    needs: [lint, test, release-workflow, release-bundle, release-model, aislop]
     if: always()
     steps:
       - name: Check CI results
@@ -177,9 +218,11 @@ jobs:
           LINT_RESULT: ${{ needs.lint.result }}
           TEST_RESULT: ${{ needs.test.result }}
           RELEASE_WORKFLOW_RESULT: ${{ needs.release-workflow.result }}
+          RELEASE_BUNDLE_RESULT: ${{ needs.release-bundle.result }}
+          RELEASE_MODEL_RESULT: ${{ needs.release-model.result }}
           AISLOP_RESULT: ${{ needs.aislop.result }}
         run: |
-          if [[ "$LINT_RESULT" != "success" || "$TEST_RESULT" != "success" || "$RELEASE_WORKFLOW_RESULT" != "success" || "$AISLOP_RESULT" != "success" ]]; then
-            echo "CI did not succeed: lint=$LINT_RESULT, test=$TEST_RESULT, release-workflow=$RELEASE_WORKFLOW_RESULT, aislop=$AISLOP_RESULT"
+          if [[ "$LINT_RESULT" != "success" || "$TEST_RESULT" != "success" || "$RELEASE_WORKFLOW_RESULT" != "success" || "$RELEASE_BUNDLE_RESULT" != "success" || "$RELEASE_MODEL_RESULT" != "success" || "$AISLOP_RESULT" != "success" ]]; then
+            echo "CI did not succeed: lint=$LINT_RESULT, test=$TEST_RESULT, release-workflow=$RELEASE_WORKFLOW_RESULT, release-bundle=$RELEASE_BUNDLE_RESULT, release-model=$RELEASE_MODEL_RESULT, aislop=$AISLOP_RESULT"
             exit 1
           fi
