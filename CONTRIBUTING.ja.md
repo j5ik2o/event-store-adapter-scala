@@ -56,7 +56,7 @@ bash .github/quint/run-quint.sh ci
 
 - 変更は pull request で `main` に入れます。CI は pull request でも動き、`CI Success` ジョブが成功する必要があります。`CI Success` は、lint・test・release-workflow・release-bundle・release-model・aislop の結果をまとめて判定します。
 - 版は根の `version` ファイル（1行の `X.Y.Z`）に持ち、`build.sbt` がすべてのプロジェクトの版として読みます。手で書き換えないでください。変えるのは Bump Version の版上げの pull request だけです。リリースのあとも `version` は出した版のままで、SNAPSHOT 版へは戻しません。そのため、`main` で手元の `sbt publishLocal` を流すと、出した版と同じ番号で `~/.ivy2/local` に入り、その手元では Maven Central の成果物の代わりに使われます。終わったら `~/.ivy2/local` から消してください。
-- Bump Version ワークフローは手動で起動します。入力は `level`（`auto`、`patch`、`minor`、`major`）・`force_bump`・`version`・`rehearsal` です。最新のタグ以降のコミットのうち、件名が Conventional Commits の型を持つもの、または本文に `BREAKING CHANGE:`・`BREAKING-CHANGE:` があるものを数えます。1つも無ければ、`level` を指定していても版を上げません（ジョブのログに書きます）。それでも上げるときは `force_bump` か `version` を指定します。型のあとの `!` と、本文の破壊的変更の印は major です。そうでなければ、`level` を明示した場合はその値を使い、`level=auto` では、型が `feat` か `revert` のコミットがあれば minor、ほかは patch です（`.github/semver-level.py`。以前の `github-tag-action` の手順と同じ規則）。`version` を明示した場合は段階を使わず、指定した版を次の版にします。その版はすべてのタグより大きくなければなりません。
+- Bump Version ワークフローは手動で起動します。入力は `level`（`auto`、`patch`、`minor`、`major`）・`force_bump`・`version`・`rehearsal` です。最新のタグ以降のコミットのうち、件名が Conventional Commits の型を持つもの、または本文に `BREAKING CHANGE:`・`BREAKING-CHANGE:` があるものを数えます。1つも無ければ、`level` を指定していても版を上げません（ジョブのログに書きます）。それでも上げるときは `force_bump` か `version` を指定します。`level`（`patch`・`minor`・`major`）を明示した場合は、破壊的変更のコミットがあっても、その値をそのまま使います。`level=auto` では、型のあとの `!` か本文の破壊的変更の印があれば major、そうでなければ、型が `feat` か `revert` のコミットがあれば minor、ほかは patch です（`.github/semver-level.py`。以前の `github-tag-action` の手順と同じ規則）。`version` を明示した場合は段階を使わず、指定した版を次の版にします。その版はすべてのタグより大きくなければなりません。どの場合も、次の版は `version` の今の版より大きくなければならず、そうでなければ pull request を開く前に止まります（マージ済みで、まだタグの無い版上げの pull request があるとき）。
 - Bump Version は `main` へ push しません。新しい版を `release/vX.Y.Z` の枝の `version` にコミットし、`main` への pull request を開きます。GitHub のリリースは作りません。
 - `version` を変えたコミットが `main` に入ると、Bump Version のタグのジョブが、関門（`.github/release-gate.py`）でそのコミットを確かめます。コミットは、このリポジトリの `release/vX.Y.Z` からの pull request を squash でマージしたもので、`version` の版だけを変えていなければなりません。版は、前の版とすべての `vX.Y.Z` のタグより大きくなければなりません。親のコミットに `version` が無いとき（このファイルを足したコミット）は、リリースしません。
 - `vX.Y.Z` のタグを push すると `publish` ワークフロー（`.github/workflows/publish.yml`）が起動します。`publish` ワークフローは、タグのコミットをもう一度関門で確かめてから、その版を Maven Central へ公開します（[リリースの出し方](#リリースの出し方)）。Snapshot（試験版）は公開しません。正式版を使ってください。
@@ -70,8 +70,8 @@ bash .github/quint/run-quint.sh ci
 4. `publish` ワークフローが、ジョブ `Publish to Maven Central` を次の順に流します。
    1. タグのコミットを関門で確かめます。
    2. sbt が、すべてのプロジェクトと両方の Scala の版で、タグの版をビルドすることを確かめます（`sbt '+print version'`）。
-   3. Maven Central と前の `publish` の run を確かめます（`.github/central-portal.py precheck`）。処理中の deployment があれば待ちます（最大 60 分）。版が公開済みならアップロードせずに先へ進み、行方の分からない試みがあれば止まります。
-   4. `sbt +publishSigned` で bundle を作り、Central Portal へ上げます（`publishingType=AUTOMATIC`）。bundle は 192 ファイルです。12 の成果物（6つのモジュールの Scala 2.13 と 3）それぞれの jar・sources・javadoc・POM と、その署名と、4つの本体の MD5・SHA-1 の checksum です。署名には checksum を付けません（Maven Central の要件にありません）。
+   3. Maven Central と前の `publish` の run を確かめます（`.github/central-portal.py precheck`）。処理中の deployment があれば待ちます（最大 60 分）。版が公開済み（この版の `PUBLISHED` の deployment があるか、repo1 が12の POM をすべて返す）ならアップロードせずに先へ進み、repo1 が POM の一部だけを返すなら止まり、行方の分からない試みがあれば止まります。60 分には照会の時間も含みます。
+   4. `sbt +publishSigned` で bundle を作り、タグのコミットをもう一度関門で確かめてから（bundle を作るあいだに新しいタグが push されていたら上げない）、Central Portal へ上げます（`publishingType=AUTOMATIC`）。bundle は 192 ファイルです。12 の成果物（6つのモジュールの Scala 2.13 と 3）それぞれの jar・sources・javadoc・POM と、その署名と、4つの本体の MD5・SHA-1 の checksum です。署名には checksum を付けません（Maven Central の要件にありません）。
    5. deployment の ID を artifact `central-deployment-<試みの番号>-<ID>` に残します（90 日）。
    6. deployment が `PUBLISHED` になるまで待ちます（最大 60 分）。
 5. `PUBLISHED` になったら、`Create the GitHub release` が GitHub のリリースを作り、`Check Maven Central` が、repo1 が12の POM を返すまで待ちます（最大 60 分）。
@@ -140,7 +140,8 @@ ID が無くて事前の確認が止まったときは、そのエラーの文�
 | `publish` の run を消した。タグの push で `publish` の run が起きなかった（一度に4つ以上のタグの push、障害） | 事前の確認が止まる（`publish` の run の無いタグがある：`tag vX.Y.Z has no publish.yml run`） | その版の deployment が処理中でないことを Portal で確かめ、`tag/vX.Y.Z=checked` を足して再実行する。タグは動かさない |
 | `publish` の run は残っているが、試みの `central-deployment-<試みの番号>-<ID>` の artifact を消した | 事前の確認が止まる（その試みはアップロードしたかもしれないのに deployment の ID が無い）。足す行を出す。`tag/vX.Y.Z=checked` では通らない（run の無いタグにだけ効く） | その試みの job summary やログ、または Portal で名前 `event-store-adapter-scala-<版>-run<run_id>-<試みの番号>` から ID を探す。`<run_id>/<試みの番号>=<ID>` を足す。Portal にその deployment が無ければ `<run_id>/<試みの番号>=none` を足す。そのあと再実行する |
 | `publish.yml` のジョブや手順の名前を変えた | 前の run で、事前の確認が止まる | 変えない。どうしても変えるときは、古い名前も `.github/central-rules.py` に残す |
-| artifact の保存期間を 90 日より短くした | 事前の確認が止まる | 90 日に戻す |
+| artifact の保存期間を 90 日より短くした、記録の期限が切れた | 事前の確認が止まる（`expires before 90 days` か `has expired`） | 新しい記録のために保存期間を 90 日に戻す。既にある記録の期限は早いまま変わらないので、エラーの文が出す行 `<run_id>/<試みの番号>=<ID>`（その記録の ID）を足して再実行する。事前の確認は、その deployment の状態をいつもどおり Portal で読む |
+| repo1 が、その版の12の POM の一部だけを返す（`repo1 serves only N of the 12 POMs`） | 事前の確認が止まる。アップロードも GitHub のリリースもしない | 公開済みの deployment が反映の途中かもしれない。数分おいてジョブを再実行する。変わらなければ Portal で deployment を確かめる |
 | 30 日を過ぎて、run を再実行できない | | その版は飛んだ版として扱い、次の版を出す。その前に、行方の分からない試みすべてに行を足す |
 | 80 日より前の run | 事前の確認は数えない | |
 

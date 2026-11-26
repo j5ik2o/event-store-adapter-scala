@@ -41,18 +41,43 @@ module javaPathsTest {
       .then(tagJob(2))
       .expect(s.tags.get(2) == 2 and safety)
 
-  // 処理中のまま確認が時間切れ → PUBLISHED → 確認だけを再実行 → 確認できる（公開はしない）
+  // 待ちの手順が処理中のまま時間切れ → 公開のジョブが失敗（確認だけの再実行は無い）→ PUBLISHED → 公開のジョブを再実行 →
+  // precheck が published と読んで上げずに成功 → 確認とリリース（#934 の CodeRabbit の指摘）
   run timeoutThenConfirmTest =
     mergedRelease(0)
       .then(tagJob(2))
       .then(publishJob(2, false))
       .then(confirmPoll(2))
       .then(confirmPoll(2))
-      .expect(s.confirm.get(2).status == TimedOut and s.confirm.get(2).whileProcessing)
+      .expect(s.publishFailed.contains(2) and not(s.confirm.keys().contains(2)) and deployOf(s, 2) == Processing)
       .then(portalResolve(2, true))
-      .then(rerunConfirm(2))
+      .then(rerunPublishJob(2))
+      .then(resumePublishJob(2))
       .then(confirmPoll(2))
-      .expect(s.confirm.get(2).status == Confirmed and s.duplicateAttempts == 0 and safety)
+      .expect(s.confirm.get(2).status == Confirmed and s.jobOk.contains(2))
+      .then(githubRelease(2))
+      .expect(s.releases.contains(2) and s.duplicateAttempts == 0 and safety)
+
+  // timeoutThenConfirmTest の途中で、rerunConfirm が動かないこと
+  run timeoutThenConfirmRefused1Test =
+    mergedRelease(0)
+      .then(tagJob(2))
+      .then(publishJob(2, false))
+      .then(confirmPoll(2))
+      .then(confirmPoll(2))
+      .expect(s.publishFailed.contains(2) and not(s.confirm.keys().contains(2)) and deployOf(s, 2) == Processing)
+      .then(rerunConfirm(2).fail())
+
+  // timeoutThenConfirmTest の途中で、githubRelease が動かないこと
+  run timeoutThenConfirmRefused2Test =
+    mergedRelease(0)
+      .then(tagJob(2))
+      .then(publishJob(2, false))
+      .then(confirmPoll(2))
+      .then(confirmPoll(2))
+      .expect(s.publishFailed.contains(2) and not(s.confirm.keys().contains(2)) and deployOf(s, 2) == Processing)
+      .then(portalResolve(2, true))
+      .then(githubRelease(2).fail())
 
   // FAILED → リリースを作らない → 確認はすぐ失敗 → 公開のジョブを再実行 → PUBLISHED
   run failedThenRepublishTest =
@@ -68,8 +93,27 @@ module javaPathsTest {
       .then(publishJob(2, false))
       .expect(deployOf(s, 2) == Processing)
       .then(portalResolve(2, true))
+      // 待ちの手順が PUBLISHED を読んで、公開のジョブが成功してから、リリースのジョブが動く
+      .then(confirmPoll(2))
       .then(githubRelease(2))
       .expect(s.published.contains(2) and s.releases.contains(2) and s.duplicateAttempts == 0 and safety)
+
+  // failedThenRepublishTest の途中で、githubRelease が動かないこと
+  run failedThenRepublishRefused1Test =
+    mergedRelease(0)
+      .then(tagJob(2))
+      .then(publishJob(2, false))
+      .then(portalResolve(2, false))
+      .expect(s.publishFailed.contains(2) and deployOf(s, 2) == Failed)
+      .expect(deployOf(s, 2) != Published)
+      .then(confirmPoll(2))
+      .expect(s.confirm.get(2).status == Rejected)
+      .then(rerunPublishJob(2))
+      .then(publishJob(2, false))
+      .expect(deployOf(s, 2) == Processing)
+      .then(portalResolve(2, true))
+      // 待ちの手順が PUBLISHED を読んで、公開のジョブが成功してから、リリースのジョブが動く
+      .then(githubRelease(2).fail())
 
   // 公開の操作のあとでジョブが失敗 → 再実行しても、処理中の deployment があるので二度目は出さない → PUBLISHED
   run jobFailsAfterSubmitTest =
@@ -82,6 +126,25 @@ module javaPathsTest {
       .expect(s.publishFailed.contains(2) and s.duplicateAttempts == 0)
       .then(portalResolve(2, true))
       .expect(s.published.contains(2) and s.duplicateAttempts == 0 and safety)
+      // ジョブは失敗のままなので、リリースはまだ作れない。再実行の precheck が published と読んでから
+      .then(rerunPublishJob(2))
+      .then(resumePublishJob(2))
+      .then(githubRelease(2))
+      .expect(s.releases.contains(2) and s.duplicateAttempts == 0 and safety)
+
+  // jobFailsAfterSubmitTest の途中で、githubRelease が動かないこと
+  run jobFailsAfterSubmitRefused1Test =
+    mergedRelease(0)
+      .then(tagJob(2))
+      .then(publishJob(2, true))
+      .expect(s.publishFailed.contains(2) and deployOf(s, 2) == Processing)
+      .then(rerunPublishJob(2))
+      .then(publishJob(2, false))
+      .expect(s.publishFailed.contains(2) and s.duplicateAttempts == 0)
+      .then(portalResolve(2, true))
+      .expect(s.published.contains(2) and s.duplicateAttempts == 0 and safety)
+      // ジョブは失敗のままなので、リリースはまだ作れない。再実行の precheck が published と読んでから
+      .then(githubRelease(2).fail())
 
   // 2つの版を続けて出す
   run twoReleasesTest =
@@ -163,11 +226,18 @@ module kotlinPathsTest {
   run legacyFailedTest =
     init
       .then(publishLegacy(1))
-      .expect(inFlightOrDone(s, 1))             // 処理中なので publishLegacy の条件を満たさない
+      .expect(inFlightOrDone(s, 1))
       .then(portalResolve(1, false))
       .then(publishLegacy(1))
       .then(portalResolve(1, true))
       .expect(s.published.contains(1) and s.duplicateAttempts == 0 and safety)
+
+  // legacyFailedTest の途中で、publishLegacy が動かないこと（処理中なので、もう一度は出せない（#934 の CodeRabbit の指摘））
+  run legacyFailedRefused1Test =
+    init
+      .then(publishLegacy(1))
+      .expect(inFlightOrDone(s, 1))
+      .then(publishLegacy(1).fail())
 
   // 5.2.0 が PUBLISHED になっても、repo1 に見えるまでは関門が拒否する。見えたあとの再実行で通る（設計レビュー L1）
   run legacyVisibleLaterTest =
@@ -236,11 +306,18 @@ module scalaPathsTest {
   run legacyFailedTest =
     init
       .then(publishLegacy(1))
-      .expect(inFlightOrDone(s, 1))             // 処理中なので publishLegacy の条件を満たさない
+      .expect(inFlightOrDone(s, 1))
       .then(portalResolve(1, false))
       .then(publishLegacy(1))
       .then(portalResolve(1, true))
       .expect(s.published.contains(1) and s.duplicateAttempts == 0 and safety)
+
+  // legacyFailedTest の途中で、publishLegacy が動かないこと（処理中なので、もう一度は出せない（#934 の CodeRabbit の指摘））
+  run legacyFailedRefused1Test =
+    init
+      .then(publishLegacy(1))
+      .expect(inFlightOrDone(s, 1))
+      .then(publishLegacy(1).fail())
 
   // 5.2.0 が PUBLISHED になっても、repo1 に見えるまでは関門が拒否する。見えたあとの再実行で通る（設計レビュー L1）
   run legacyVisibleLaterTest =
@@ -325,9 +402,46 @@ module javaR2bPathsTest {
       .then(publishJobAt(2, false, 0, 0))
       .expect(s.publishFailed.contains(2) and s.duplicateAttempts == 0)
       .then(portalResolve(2, true))
+      // ID を補っても、確認とリリースは公開のジョブの再実行が published と読んでから（#934 の CodeRabbit の指摘）
+      .then(rerunPublishJob(2))
+      .then(resumePublishJob(2))
       .then(confirmPoll(2))
       .then(githubRelease(2))
       .expect(s.releases.contains(2) and s.duplicateAttempts == 0 and s.uploadsWhileUnknown == 0 and safety)
+
+  // crashBeforeIdTest の途中で、confirmPoll が動かないこと
+  run crashBeforeIdRefused1Test =
+    tagged2
+      .then(publishJobAt(2, false, 2, 0))
+      .expect(s.unknown.get(2) and deployOf(s, 2) == Processing and not(s.recorded.contains(2)))
+      .then(rerunPublishJob(2))
+      .then(publishJobAt(2, false, 0, 0))
+      .expect(s.publishFailed.contains(2) and s.duplicateAttempts == 0)
+      .then(supplyId(2))
+      .expect(s.recorded.contains(2) and s.unknown.keys().size() == 0)
+      .then(rerunPublishJob(2))
+      .then(publishJobAt(2, false, 0, 0))
+      .expect(s.publishFailed.contains(2) and s.duplicateAttempts == 0)
+      .then(portalResolve(2, true))
+      // ID を補っても、確認とリリースは公開のジョブの再実行が published と読んでから（#934 の CodeRabbit の指摘）
+      .then(confirmPoll(2).fail())
+
+  // crashBeforeIdTest の途中で、githubRelease が動かないこと
+  run crashBeforeIdRefused2Test =
+    tagged2
+      .then(publishJobAt(2, false, 2, 0))
+      .expect(s.unknown.get(2) and deployOf(s, 2) == Processing and not(s.recorded.contains(2)))
+      .then(rerunPublishJob(2))
+      .then(publishJobAt(2, false, 0, 0))
+      .expect(s.publishFailed.contains(2) and s.duplicateAttempts == 0)
+      .then(supplyId(2))
+      .expect(s.recorded.contains(2) and s.unknown.keys().size() == 0)
+      .then(rerunPublishJob(2))
+      .then(publishJobAt(2, false, 0, 0))
+      .expect(s.publishFailed.contains(2) and s.duplicateAttempts == 0)
+      .then(portalResolve(2, true))
+      // ID を補っても、確認とリリースは公開のジョブの再実行が published と読んでから（#934 の CodeRabbit の指摘）
+      .then(githubRelease(2).fail())
 
   // Portal に届く前に落ちる → 人が none を入れる → 公開し直す
   run crashBeforeSubmitTest =
@@ -370,8 +484,23 @@ module javaR2bPathsTest {
       .expect(s.publishFailed.contains(2) and s.duplicateAttempts == 0)
       .then(fixNone(2))
       .then(portalResolve(2, true))
+      .then(rerunPublishJob(2))
+      .then(resumePublishJob(2))
       .then(githubRelease(2))
       .expect(s.releases.contains(2) and s.duplicateAttempts == 0 and safety)
+
+  // wrongNoneTest の途中で、githubRelease が動かないこと
+  run wrongNoneRefused1Test =
+    tagged2
+      .then(publishJobAt(2, true, 0, 0))
+      .then(wrongNone(2))
+      .expect(s.noneConflict == Set(2) and s.recorded.contains(2))
+      .then(rerunPublishJob(2))
+      .then(publishJobAt(2, false, 0, 0))
+      .expect(s.publishFailed.contains(2) and s.duplicateAttempts == 0)
+      .then(fixNone(2))
+      .then(portalResolve(2, true))
+      .then(githubRelease(2).fail())
 
   // =none の食い違いだけで、ほかの版のアップロードも止まる（版 2 は PUBLISHED。止めるのは食い違いのガードだけ）。
   // 行を消したあとは版 3 を出せる（#924 の CodeRabbit の指摘）

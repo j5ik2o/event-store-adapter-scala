@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # release_path.qnt の検査を流す。
 # 使い方:
-#   bash .github/quint/run-quint.sh ci          CI 用：typecheck、quint test の全件、scala（R5）と R2b の instance の quint run（少ないサンプル）
+#   bash .github/quint/run-quint.sh ci          CI 用：typecheck、quint test の全件（決まった手順。javaR2bPathsTest を含む）、
+#                                               違反なしを期待する scala の3つと、違反を期待する6つ（scalaNoRequired と R2b の障害）の
+#                                               quint run（500 サンプル）。javaR2b・javaR2bReleasesOnly の乱数の試行は full だけ
 #   bash .github/quint/run-quint.sh full [N]    全 instance を N サンプル（既定 3000）で流す。モデルを変えた PR で手元で流し、結果を PR に書く
 # 環境変数 QUINT：quint のコマンド（既定 quint）。CI は npx で版を固定して使う。
 set -euo pipefail

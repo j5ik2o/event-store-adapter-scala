@@ -118,8 +118,10 @@ class SemverLevelStepTest(unittest.TestCase):
 class NextVersionStepTest(unittest.TestCase):
     """bump-version.yml の versions の手順（next-semver.py）。タグの先頭の v だけを外して SemVer として読む（#934 の Devin の指摘）。"""
 
-    def next_version(self, prev_tag, level, requested=''):
+    def next_version(self, prev_tag, level, requested='', current='0.0.1\n'):
         with tempfile.TemporaryDirectory() as directory:
+            if current is not None:
+                (Path(directory) / 'version').write_text(current)
             output = Path(directory) / 'output'
             output.write_text('')
             result = subprocess.run(['bash', '-e', '-c', run_body(BUMP, 'versions')], cwd=directory,
@@ -131,6 +133,7 @@ class NextVersionStepTest(unittest.TestCase):
 
     def test_multi_digit_versions_are_read_whole(self):
         cases = {('v10.2.0', 'patch'): '10.2.1', ('v10.2.0', 'minor'): '10.3.0', ('v10.2.0', 'major'): '11.0.0',
+                 ('v10.2.3', 'minor'): '10.3.0', ('v10.2.3', 'patch'): '10.2.4',
                  ('v5.12.34', 'patch'): '5.12.35', ('v5.2.0', 'minor'): '5.3.0', ('v0.9.9', 'patch'): '0.9.10',
                  ('v123.45.678', 'major'): '124.0.0'}
         for (tag, level), expected in cases.items():
@@ -138,6 +141,20 @@ class NextVersionStepTest(unittest.TestCase):
                 result, output = self.next_version(tag, level)
                 self.assertEqual(result.returncode, 0, result.stderr)
                 self.assertEqual(output, f'next_version={expected}\nnext_tag=v{expected}\n')
+
+    def test_the_next_version_must_be_greater_than_the_version_file(self):
+        # 5.3.0 の版上げをマージしてタグがまだ無いとき、最新のタグ v5.2.0 から 5.2.1 を出すと版を下げる PR になる
+        for prev_tag, level, requested, current in (('v5.2.0', 'patch', '', '5.3.0\n'), ('v5.2.0', '', '5.2.1', '5.3.0\n'),
+                                                    ('v5.2.0', 'patch', '', '5.2.1\n'), ('v5.2.0', 'patch', '', None)):
+            with self.subTest(requested=requested, current=current):
+                result, output = self.next_version(prev_tag, level, requested=requested, current=current)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn('::error::', result.stderr)
+                self.assertEqual(output, '')
+        for current in ('5.2.0\n', '5.2.1-SNAPSHOT\n', '5.2.0'):
+            with self.subTest(current=current):
+                result, output = self.next_version('v5.2.0', 'patch', current=current)
+                self.assertEqual((result.returncode, output), (0, 'next_version=5.2.1\nnext_tag=v5.2.1\n'), result.stderr)
 
     def test_a_requested_version_is_used_as_is(self):
         result, output = self.next_version('v10.2.0', '', requested='10.4.0')

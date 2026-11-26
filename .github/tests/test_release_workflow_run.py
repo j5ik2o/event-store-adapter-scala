@@ -40,6 +40,12 @@ if sys.argv[1:] == ['-batch', '--error', '-Dsbt.supershell=false', '-Dsbt.color=
         # supershell の消去の制御列（CI の実物で見た ESC[0J）が混じっても読める
         print(f'version\\n\\t{version}\\n\\x1b[0J')
 elif sys.argv[-1] == '+publishSigned':
+    if os.environ.get('FAKE_TAG_DURING_BUILD'):
+        # bundle を作るあいだに、ほかの run が新しいタグを push する
+        import subprocess
+        remote = os.environ['FAKE_REMOTE']
+        head = subprocess.run(['git', '-C', remote, 'rev-parse', 'main'], check=True, capture_output=True, text=True).stdout.strip()
+        subprocess.run(['git', '-C', remote, 'tag', os.environ['FAKE_TAG_DURING_BUILD'], head], check=True)
     repository = re.search(r'"file://([^"]+)"', sys.argv[-2]).group(1)
     for artifact in os.environ['FAKE_ARTIFACTS'].split():
         directory = Path(repository, 'io/github/j5ik2o', artifact, version)
@@ -87,6 +93,7 @@ class ReleaseWorkflowRunTest(unittest.TestCase):
         self.statuses = {}
         self.repo1 = 404
         self.required = 200       # 公開先に必要な版（5.2.0）の12の POM。既定では出ている
+        self.tag_during_build = ''  # bundle を作るあいだに push される新しいタグ
         self.stub.routes[('GET', f'/repos/{REPOSITORY}/actions/workflows/publish.yml/runs')] = \
             lambda request: (200, {'total_count': len(self.github_runs), 'workflow_runs': self.github_runs})
 
@@ -159,7 +166,8 @@ class ReleaseWorkflowRunTest(unittest.TestCase):
             'GIT_CONFIG_GLOBAL': str(self.directory / 'gitconfig'), 'GIT_CONFIG_NOSYSTEM': '1',
             'FAKE_PULLS': str(self.pulls), 'FAKE_GH_CALLS': str(self.directory / 'gh-calls'), 'PULLS_RETRY_SECONDS': '0',
             'FAKE_SBT_CALLS': str(self.sbt_calls), 'FAKE_SBT_VERSION': sbt_version,
-            'FAKE_ARTIFACTS': ' '.join(portal.bundle.ARTIFACTS),
+            'FAKE_ARTIFACTS': ' '.join(portal.bundle.ARTIFACTS), 'FAKE_REMOTE': str(self.remote),
+            'FAKE_TAG_DURING_BUILD': self.tag_during_build,
             'CENTRAL_API_URL': self.stub.url, 'REPO1_URL': self.stub.url + '/repo1',
         })
         runner = Runner(workflow, workspace, temp, {'token': 'ghs_dummy', 'ref_name': tag, 'run_attempt': str(attempt)},
@@ -247,12 +255,27 @@ class ReleaseWorkflowRunTest(unittest.TestCase):
                                    'upload': {'SONATYPE_USERNAME', 'SONATYPE_PASSWORD'},
                                    'deployment': {'SONATYPE_USERNAME', 'SONATYPE_PASSWORD'}})
 
+    def test_a_tag_pushed_while_the_bundle_is_built_stops_the_upload(self):
+        # 2つ目の関門：bundle のあいだに v5.4.0 ができたら、v5.3.0 は上げない（#934 の CodeRabbit の指摘）
+        workspace, tag = self.history()
+        self.tag_during_build = 'v5.4.0'
+        result = self.run_release(workspace, tag)
+        self.assertEqual(result.outcome('bundle'), 'success')
+        self.assertEqual(result.outcome('release_gate_again'), 'failure')
+        again = next(step for step in result.steps if step.id == 'release_gate_again')
+        self.assertIn('must be greater than the latest tag v5.4.0', again.stderr)
+        for step_id in ('upload', 'record', 'deployment'):
+            self.assertEqual(result.outcome(step_id), 'skipped', step_id)
+        self.assertEqual(self.uploads, [])
+        self.assertEqual(result.artifacts, [])
+        self.assertFalse(again.secrets)
+
     def test_a_published_version_is_not_uploaded_again(self):
         workspace, tag = self.history()
         self.repo1 = 200
         result = self.run_release(workspace, tag)
         self.assertTrue(result.succeeded)
-        for step_id in ('bundle', 'upload', 'record', 'deployment'):
+        for step_id in ('bundle', 'release_gate_again', 'upload', 'record', 'deployment'):
             self.assertEqual(result.outcome(step_id), 'skipped', step_id)
         self.assertEqual(result.outputs, {'action': 'published', 'state': ''})
         self.assertEqual(self.uploads, [])

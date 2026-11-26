@@ -12,7 +12,7 @@ The model was written for the release path design of the event-store-adapter rep
 
 - Concurrency groups (`release-tag` for the tag job, `release-publish` for the publish job): a job that arrives in a group replaces the job waiting there. Every arrival counts, the first run and every re-run (of a failed job or of a cancelled run), whatever its version or commit, so a re-run of an older version can replace the waiting job of a newer one ([#863](https://github.com/j5ik2o/event-store-adapter-java/issues/863)). `RERUN_CANCELLED`: a person re-runs a cancelled run. The instance `cancelledLeftAlone` leaves cancelled runs alone (the recovery row before #863) and breaks I8 and I8b: the latest tag stays unpublished, or a merged version above the latest tag stays untagged, with nothing left to run. The tag gate does not require the commit to be the head of `main` (a merge that does not change the version can come after it), so I8b checks every untagged version commit above the latest tag.
 
-This repository is event-store-adapter-scala. The model is the one of j5ik2o/event-store-adapter-kotlin (`.github/quint/` at `780eb20`, which is the java model at `3439740` with `portalResolveAt` added), unchanged. Only the scala instances differ; they have the R5 shape of this repository:
+This repository is event-store-adapter-scala. The model is the one of j5ik2o/event-store-adapter-kotlin (`.github/quint/` at `780eb20`, which is the java model at `3439740` with `portalResolveAt` added), with the changes listed below the invariants (review on #934). The scala instances have the R5 shape of this repository:
 
 - `INIT_VER = 1, INIT_PRE = false`: R5 adds the `version` file with `5.2.0` (no pre-release). The merge of R5 itself (its parent has no `version`, so the tag job releases nothing) and the lightweight tag `v5.2.0` are outside the model; the release gate tests cover them.
 - `LEGACY = Set(1)`: the tag `v5.2.0` exists, but 5.2.0 is not on Maven Central. It is published by re-running all jobs of the 2026-11-11 `publish` run 42967443751, which has no release gate (`publishLegacy`).
@@ -23,12 +23,21 @@ This repository is event-store-adapter-scala. The model is the one of j5ik2o/eve
 
 Outside the model: a tag made by hand on a commit before R5 (`a68723e` of `v5.2.0` or earlier). Such a commit runs its old `publish.yml` (tags `v*`, no gate), which could publish a newer version before 5.2.0. `pushTagByHand` only tags the head after R5, and the scala instances have `OLD_PUBLISH = false`, so `MANUAL_TAGS = true` does not cover that path. CONTRIBUTING forbids such tags; tag rulesets would close it structurally.
 
-Invariants are `safety` (I1 to I11, with I8b `untaggedReleaseRecoverable`). Instances whose names describe a missing safeguard (`stepRecordDropped`, `unknownIgnored`, `noneSkipsQuery`, `cancelledLeftAlone` and others) are expected to violate an invariant.
+Invariants are `safety` (I1 to I11, with I8b `untaggedReleaseRecoverable`, I6c `requiredVisibleBeforeNewer` and I8c `publishedReleaseRecoverable`).
+
+Changes made in this repository (review on #934), all checked against `publish.yml`:
+
+- `jobOk`: the release job ended with success, because its wait step read `PUBLISHED` (`confirmPoll`) or its precheck read the deployment as published (`resumePublishJob`, a run or re-run that uploads nothing). `githubRelease` needs it, as the `github-release` job needs the outputs of the release job. A job that fails after the upload, or whose wait times out while the deployment is still processing, leaves no confirm and no release: the recovery is to re-run the release job. `rerunConfirm` is only for the repo1 timeout of the `Check Maven Central` job. `supplyId` no longer starts the confirm by itself.
+- I6c `requiredVisibleBeforeNewer`: a version newer than the required version is in flight or published only when the required version is visible on repo1, not only `PUBLISHED` in the Portal. I6b alone does not catch a gate that reads the Portal state (checked by changing `requiredPublished` to read `published`: I6c is violated, I6b is not).
+- I8c `publishedReleaseRecoverable`: a published latest version without a GitHub release can still get one by the documented steps.
+- `noLatestTagCheck` drops the latest-tag check of the model's single publish action, which stands for both the publish gate and the precheck (the model decides and uploads in one step). It shows that a latest-tag check right before the upload is needed; `publish.yml` makes it three times (the gate, the precheck after its wait, and the gate again right before the upload).
+
+In CI (`run-quint.sh ci`), every `quint test` runs (fixed paths, including `javaR2bPathsTest`), and `quint run` samples the three scala instances (no violation expected) and six instances that must violate an invariant (`scalaNoRequired` and the R2b failure cases). The random runs of `javaR2b`, `javaR2bReleasesOnly` and the other instances are in `full` only. Instances whose names describe a missing safeguard (`stepRecordDropped`, `unknownIgnored`, `noneSkipsQuery`, `cancelledLeftAlone` and others) are expected to violate an invariant.
 
 ## Running
 
 ```sh
-bash .github/quint/run-quint.sh ci          # what CI runs: typecheck, every quint test, the scala and R2b instances with 500 samples
+bash .github/quint/run-quint.sh ci          # what CI runs: typecheck, every quint test, 3 scala and 6 negative instances with 500 samples
 bash .github/quint/run-quint.sh full 3000   # every instance; run it locally when the model changes and put the result in the pull request
 ```
 

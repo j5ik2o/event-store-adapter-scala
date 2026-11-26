@@ -3,15 +3,16 @@
 
 設計：R2b の設計の追記（v3）の §1.1〜§1.6。判定は central-rules.py の decide。このファイルは照会と書き込みをする。
 
-precheck --version X.Y.Z [--remote origin] [--attempts N --interval S]
+precheck --version X.Y.Z [--remote origin] [--attempts N --interval S --deadline SECONDS]
     publish.yml の run・jobs・artifact、変数 CENTRAL_DEPLOYMENTS、Portal の状態、repo1 を読んで決める。
     出力（$GITHUB_OUTPUT）：action=upload|published、deployment=<ID または空>。止まるときは終了コード 1。
 upload --version X.Y.Z --bundle <zip> --record <ファイル>
     bundle を publishingType=AUTOMATIC で上げる（ファイル名は <deployment の名前>.zip）。受け取った ID を最初に --record の
     ファイルへ、次に $GITHUB_OUTPUT の deployment に書く（publish.yml の ID の記録の手順が、そのファイルを artifact にする）。
-wait --id <ID> [--attempts N --interval S]
+wait --id <ID> [--attempts N --interval S --deadline SECONDS]
     deployment が PUBLISHED になるまで待つ。FAILED は errors を出して失敗。時間切れも失敗。
-confirm --version X.Y.Z [--attempts N --interval S]
+    precheck・wait・confirm は --deadline 秒（既定 3600）の締め切りを単調時計で持ち、照会の時間も数える。
+confirm --version X.Y.Z [--attempts N --interval S --deadline SECONDS]
     repo1 が12の成果物の POM を返すまで待つ。
 check-version --tag vX.Y.Z  （標準入力に `sbt -batch --error '+print version'` の標準出力だけ）
 published --version X.Y.Z
@@ -23,6 +24,7 @@ CENTRAL_DEPLOYMENTS（repository variable）、GITHUB_API_URL・CENTRAL_API_URL�
 """
 import argparse
 import base64
+import http.client as http_client  # 関数 http と名前がぶつからないように
 import importlib.util
 import json
 import os
@@ -53,16 +55,56 @@ gate, bundle, Stop = rules.gate, rules.bundle, rules.Stop
 
 # ---------------------------------------------------------------- 照会
 
+class Deadline:
+    """コマンド全体の締め切り（単調時計）。照会の時間も待ちに数える（#934 の CodeRabbit の指摘）。"""
+
+    def __init__(self, seconds, clock=time.monotonic):
+        self.clock = clock
+        self.end = clock() + seconds
+
+    def remaining(self):
+        return max(0.0, self.end - self.clock())
+
+
+# 今のコマンドの締め切り。http はこの残り時間で照会を打ち切り、残りが無ければ照会しない（照会の失敗と同じ）
+DEADLINE = None
+
+
 def http(method, url, headers=None, body=None, timeout=60):
-    """(状態の番号, 本文) を返す。接続の失敗と時間切れは (None, b'')。"""
+    """(状態の番号, 本文) を返す。接続の失敗、時間切れ、本文の途中の切断（IncompleteRead）は (None, b'')。"""
+    if DEADLINE is not None:
+        left = DEADLINE.remaining()
+        if left <= 0:
+            return None, b''
+        timeout = min(timeout, left)
     request = urllib.request.Request(url, data=body, method=method, headers=headers or {})
     try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:
-            return response.status, response.read()
-    except urllib.error.HTTPError as error:
-        return error.code, error.read()
-    except (urllib.error.URLError, TimeoutError, OSError):
+        try:
+            with urllib.request.urlopen(request, timeout=timeout) as response:
+                return response.status, response.read()
+        except urllib.error.HTTPError as error:
+            return error.code, error.read()
+    except (urllib.error.URLError, http_client.HTTPException, TimeoutError, OSError):
         return None, b''
+
+
+def with_deadline(command):
+    """precheck・wait・confirm を、--deadline 秒の締め切りの中で動かす。待ちは残り時間を超えない。"""
+    def run(args, sleep=time.sleep, monotonic=time.monotonic, **kwargs):
+        global DEADLINE
+        deadline = Deadline(getattr(args, 'deadline', 3600), monotonic)
+        DEADLINE = deadline
+
+        def bounded_sleep(seconds):
+            sleep(min(seconds, deadline.remaining()))
+
+        try:
+            return command(args, sleep=bounded_sleep, deadline=deadline, **kwargs)
+        finally:
+            DEADLINE = None
+    run.__name__ = command.__name__
+    run.__doc__ = command.__doc__
+    return run
 
 
 def central_auth():
@@ -195,7 +237,8 @@ def summary(text):
 
 # ---------------------------------------------------------------- コマンド
 
-def precheck(args, sleep=time.sleep, clock=lambda: datetime.now(timezone.utc)):
+@with_deadline
+def precheck(args, sleep, deadline, clock=lambda: datetime.now(timezone.utc)):
     """GitHub の事実は最初と、待ちが明けたときだけ読む。待つあいだは Portal と repo1 だけを読み直す。"""
     github = GitHub()
     auth = {}
@@ -210,13 +253,14 @@ def precheck(args, sleep=time.sleep, clock=lambda: datetime.now(timezone.utc)):
 
     facts = gather(args.version, args.remote, github, clock())
     decision = evaluate(facts)
+    attempt = 0
     for attempt in range(1, args.attempts + 1):
         if decision.action != 'wait':
             write_output(action=decision.action, deployment=decision.deployment)
             print(f'precheck: {decision.action} {decision.deployment}'.rstrip())
             return 0
         print(f'deployments in progress: {", ".join(decision.waiting)} ({attempt}/{args.attempts}); waiting')
-        if attempt == args.attempts:
+        if attempt == args.attempts or deadline.remaining() <= 0:
             break
         sleep(args.interval)
         decision = evaluate(facts)
@@ -224,7 +268,7 @@ def precheck(args, sleep=time.sleep, clock=lambda: datetime.now(timezone.utc)):
             # 待ちが明けたら、GitHub の事実とリモートのタグを読み直して 1 から決め直す（設計 §1.4 の 5）
             facts = gather(args.version, args.remote, github, clock())
             decision = evaluate(facts)
-    raise Stop(f'deployments are still in progress after {args.attempts} checks; re-run the job later')
+    raise Stop(f'deployments are still in progress after {attempt} checks; re-run the job later')
 
 
 def multipart(path, filename):
@@ -258,8 +302,10 @@ def upload(args):
     return 0
 
 
-def wait(args, sleep=time.sleep):
+@with_deadline
+def wait(args, sleep, deadline):
     auth = central_auth()
+    attempt = 0
     for attempt in range(1, args.attempts + 1):
         status = query_status(args.id, auth)
         if status.state == 'PUBLISHED':
@@ -269,13 +315,16 @@ def wait(args, sleep=time.sleep):
         if status.state == 'FAILED':
             raise Stop(f'deployment {args.id} FAILED: {status.errors or "no errors given"}')
         print(f'deployment {args.id}: {status.state} ({attempt}/{args.attempts})')
-        if attempt < args.attempts:
-            sleep(args.interval)
-    raise Stop(f'deployment {args.id} is not PUBLISHED after {args.attempts} checks; re-run the failed jobs '
+        if attempt == args.attempts or deadline.remaining() <= 0:
+            break
+        sleep(args.interval)
+    raise Stop(f'deployment {args.id} is not PUBLISHED after {attempt} checks; re-run the failed jobs '
                '(the precheck waits for the same deployment and does not upload again)')
 
 
-def confirm(args, sleep=time.sleep):
+@with_deadline
+def confirm(args, sleep, deadline):
+    attempt = 0
     for attempt in range(1, args.attempts + 1):
         codes = {artifact: repo1_code(artifact, args.version) for artifact in bundle.ARTIFACTS}
         if all(code == 200 for code in codes.values()):
@@ -283,9 +332,10 @@ def confirm(args, sleep=time.sleep):
             return 0
         missing = ', '.join(f'{artifact} ({code})' for artifact, code in codes.items() if code != 200)
         print(f'repo1 does not have yet: {missing} ({attempt}/{args.attempts})')
-        if attempt < args.attempts:
-            sleep(args.interval)
-    raise Stop(f'repo1 does not have {args.version} after {args.attempts} checks; re-run only this job')
+        if attempt == args.attempts or deadline.remaining() <= 0:
+            break
+        sleep(args.interval)
+    raise Stop(f'repo1 does not have {args.version} after {attempt} checks; re-run only this job')
 
 
 def published(args):
@@ -320,6 +370,8 @@ def main(argv):
     for command, attempts, interval in ((pre, 120, 30), (waiter, 120, 30), (conf, 60, 60)):
         command.add_argument('--attempts', type=int, default=attempts)
         command.add_argument('--interval', type=float, default=interval)
+        # 照会の時間も含めた上限（秒）。CONTRIBUTING の「最大 60 分」
+        command.add_argument('--deadline', type=float, default=3600)
     version = commands.add_parser('check-version')
     version.set_defaults(run=check_version)
     version.add_argument('--tag', required=True)

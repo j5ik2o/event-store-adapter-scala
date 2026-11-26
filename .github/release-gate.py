@@ -6,6 +6,7 @@ event-store-adapter-js の .github/release-gate.py を写し、版のファイ�
 latest-tag                   標準入力のタグ名から、最大の正式版のタグ (vX.Y.Z) を書く（無ければ何も書かない）。
 required-version             公開先に必要な版 REQUIRED_PUBLISHED を書く（無ければ何も書かない）。
 set-version <X.Y.Z>          `version` の版を書き換える。版の後ろの改行の有無は元のまま残す。
+check-next <X.Y.Z>           次の版が `version` の今の版より大きいかを確かめる（版上げの PR を開く前。下げる PR を作らない）。
 check --mode tag|publish ... コミットが、版上げの PR を squash したものかを確かめる。
   tag     : 親に版のファイルが無い、版が変わっていない、正式版 (X.Y.Z) でない、
             タグが既に同じコミットにある、のときは何も書かない。通るならタグ名を書く。
@@ -243,6 +244,17 @@ def check(args):
     return check_candidate(args.mode, candidate, args.tag)
 
 
+def check_next(text, version):
+    """次の版 version が、版のファイルの中身 text の版より大きいか。大きくなければ GateError。"""
+    if parse(version) is None:
+        raise GateError(f'{version!r} is not a release version (X.Y.Z)')
+    current = split_version_file(text)[0]
+    if parse(version) <= parse(current, release_only=False):
+        raise GateError(f'{version} must be greater than the version {current} in {VERSION_FILE} '
+                        '(a version pull request may be merged but not tagged yet)')
+    return version
+
+
 def write_version(path, version):
     with open(path, 'rb') as file:
         text = set_version(decode(file.read(), path), version)
@@ -258,6 +270,9 @@ def main(argv):
     setter = commands.add_parser('set-version')
     setter.add_argument('version')
     setter.add_argument('--file', default=VERSION_FILE)
+    following = commands.add_parser('check-next')
+    following.add_argument('version')
+    following.add_argument('--file', default=VERSION_FILE)
     gate = commands.add_parser('check')
     gate.add_argument('--mode', choices=('tag', 'publish'), required=True)
     gate.add_argument('--tag')
@@ -279,6 +294,14 @@ def main(argv):
     try:
         if args.command == 'set-version':
             write_version(args.file, args.version)
+            return 0
+        if args.command == 'check-next':
+            try:
+                with open(args.file, 'rb') as file:
+                    data = file.read()
+            except OSError as error:
+                raise GateError(f'could not read {args.file}: {error}') from error
+            check_next(decode(data, args.file), args.version)
             return 0
         tag = check(args)
     except GateError as error:

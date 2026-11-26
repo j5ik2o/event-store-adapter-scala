@@ -424,5 +424,23 @@ class ReleaseGatePropertiesTest(unittest.TestCase):
         prop()
 
 
+
+class CheckNextPropertiesTest(unittest.TestCase):
+    """版上げの次の版は、version の今の版より大きいときだけ通る（#934 の CodeRabbit の指摘）。"""
+
+    @SETTINGS
+    @given(version_file(versions), versions)
+    def test_check_next_passes_only_for_a_greater_release_version(self, text, version):
+        current = text[:-1] if text.endswith('\n') else text
+        # 版のファイルが1行の版と改行1つだけで、次の版が正式版で、それより大きいときだけ通る
+        ok = accepted(current) and is_release(version) and semver.compare(version, current) > 0
+        try:
+            gate.check_next(text, version)
+        except gate.GateError:
+            self.assertFalse(ok)
+            return
+        self.assertTrue(ok)
+
+
 if __name__ == '__main__':
     unittest.main()

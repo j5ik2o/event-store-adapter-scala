@@ -32,9 +32,13 @@ class DecideTest(unittest.TestCase):
         self.assertEqual(self.decide(facts()), portal.Decision('upload'))
 
     def test_a_version_on_repo1_is_not_uploaded_again(self):
+        # 12 の POM がすべてあれば公開済み（Portal の記録が見えなくても）
+        self.assertEqual(self.decide(facts(repo1={artifact: 200 for artifact in portal.bundle.ARTIFACTS})).action,
+                         'published')
+        # 一部だけなら、上げ直さず、公開済みとも見ない（Release を作らない）
         repo1 = {artifact: 404 for artifact in portal.bundle.ARTIFACTS}
         repo1['event-store-adapter-scala-core_3'] = 200
-        self.assertEqual(self.decide(facts(repo1=repo1)).action, 'published')
+        self.assert_stops(facts(repo1=repo1), 'repo1 serves only 1 of the 12 POMs')
 
     def test_a_recorded_deployment_of_an_earlier_attempt_decides(self):
         earlier = run(jobs=[release_job(1), release_job(2, upload='absent', step_pairs=())],
@@ -166,6 +170,16 @@ class DecideTest(unittest.TestCase):
         short = run(jobs=[release_job(1)], artifacts=[portal.Artifact(
             portal.record_name(1, ID_A), False, NOW + timedelta(days=10))])
         self.assert_stops(facts([short]), '90 days')
+        # 保存期間を戻しても既にある記録の期限は変わらない。変数に同じ ID を書けば、Portal の状態で決める（処理中なら待つ）
+        for record_run in (expired, short):
+            with self.subTest(expired=record_run is expired):
+                kept = facts([record_run], overrides=f'{RUN}/1={ID_A}', statuses={ID_A: named('PUBLISHING')})
+                self.assertEqual(self.decide(kept), portal.Decision('wait', waiting=(ID_A,)))
+                published = facts([record_run], overrides=f'{RUN}/1={ID_A}', statuses={ID_A: named('PUBLISHED')},
+                                  version='5.3.0')
+                self.assertEqual(self.decide(published).action, 'published')
+                # 別の ID は食い違いとして止まる
+                self.assert_stops(facts([record_run], overrides=f'{RUN}/1={ID_B}'))
 
     def test_the_window_and_the_boundary(self):
         old = run(age=81, jobs=[release_job(1)])
