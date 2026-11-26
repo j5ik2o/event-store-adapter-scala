@@ -73,8 +73,9 @@ ThisBuild / envVars := Map(
   "AWS_JAVA_V1_DISABLE_DEPRECATION_ANNOUNCEMENT" -> "true",
 )
 ThisBuild / scalaBinaryVersion := CrossVersion.binaryScalaVersion(scalaVersion.value)
-ThisBuild / dynverSonatypeSnapshots := true
-ThisBuild / dynverSeparator := "-"
+// 版は根の `version`（1行）だけが決める。版上げの PR（Bump Version）だけが書き換える。
+// .github/release-gate.py は1行と改行1つだけを受け付けるので、関門が通す中身は trim しても同じ版になる。
+ThisBuild / version := IO.read((LocalRootProject / baseDirectory).value / "version").trim
 ThisBuild / publishMavenStyle := true
 ThisBuild / pomIncludeRepository := (_ => false)
 ThisBuild / credentials += Credentials(Path.userHome / ".sbt" / "1.0" / "sonatype_credentials")

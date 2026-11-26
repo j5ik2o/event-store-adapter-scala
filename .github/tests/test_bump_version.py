@@ -6,11 +6,10 @@ import textwrap
 import unittest
 
 
-WORKFLOW = Path(__file__).resolve().parents[1] / "workflows/bump-version.yml"
-# 実際の workflow の読み取り専用ステップを試す。action や公開処理は実行しない。
-SCRIPT = textwrap.dedent(
-    WORKFLOW.read_text().split("        run: |\n", 1)[1].split("      - name:", 1)[0]
-)
+from release_test_support import BUMP, run_body
+
+# 実際の workflow の読み取り専用ステップ（id: changes）を試す。action や公開処理は実行しない。
+SCRIPT = textwrap.dedent(run_body(BUMP, "changes"))
 
 
 class BumpVersionTest(unittest.TestCase):
@@ -32,14 +31,15 @@ class BumpVersionTest(unittest.TestCase):
     def commit(self, message):
         self.git("-c", "commit.gpgsign=false", "commit", "--allow-empty", "-qm", message)
 
-    def selection(self, level="auto", force=False, version=""):
+    def selection(self, level="auto", force=False, version="", path=None):
         output = self.root / "output"
         output.write_text("")
         subprocess.run(
-            ["bash", "-euo", "pipefail", "-c", SCRIPT],
+            # Actions と同じく bash -e で流す（pipefail は手順の中の set -o pipefail に任せる）
+            ["bash", "-e", "-c", SCRIPT],
             cwd=self.root,
             env={**os.environ, "LEVEL": level, "FORCE_BUMP": str(force).lower(), "VERSION": version,
-                 "GITHUB_OUTPUT": str(output)},
+                 "GITHUB_OUTPUT": str(output), **({"PATH": path} if path else {})},
             check=True,
             capture_output=True,
             text=True,
@@ -138,6 +138,29 @@ class BumpVersionTest(unittest.TestCase):
         self.git("tag", "v9.0.0")
         self.assert_rejected("1.2.3")
         self.assert_rejected("9.0.0")
+
+    def test_a_failing_git_log_fails_the_step(self):
+        # git log が失敗したら、件数 0 の「上げるものが無い」で成功させずに止める（設計 design-r5.md §11 L1）
+        fake_bin = self.root / "fake-bin"
+        fake_bin.mkdir()
+        real_git = subprocess.run(["which", "git"], check=True, capture_output=True, text=True).stdout.strip()
+        (fake_bin / "git").write_text(
+            "#!/bin/sh\n"
+            "if [ \"$1\" = log ]; then echo 'fatal: cannot use Perl-compatible regexes' >&2; exit 128; fi\n"
+            f"exec {real_git} \"$@\"\n")
+        (fake_bin / "git").chmod(0o755)
+        self.commit("feat: add support")
+        with self.assertRaises(subprocess.CalledProcessError):
+            self.selection(path=f"{fake_bin}{os.pathsep}{os.environ['PATH']}")
+        self.assertEqual((self.root / "output").read_text(), "")
+
+    def test_many_tags_still_select_the_range_from_the_latest_tag(self):
+        # pipefail の下でタグの有無をパイプで調べると、SIGPIPE で「タグなし」に化けうる。多くのタグでも範囲は最新のタグから
+        head = self.git("rev-parse", "HEAD").strip()
+        refs = "".join(f"create refs/tags/v0.0.{number} {head}\n" for number in range(20000))
+        subprocess.run(["git", "update-ref", "--stdin"], cwd=self.root, input=refs, check=True, text=True)
+        self.git("tag", "v1.2.4")
+        self.assertEqual(self.selection(), {"count": "0", "bump": ""})
 
 
 if __name__ == "__main__":

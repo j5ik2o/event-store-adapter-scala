@@ -1,0 +1,32 @@
+dynamodb / version
+	5.2.0
+sqlite / version
+	5.2.0
+dynamodbOnly / version
+	5.2.0
+coreOnly / version
+	5.2.0
+bigtable / version
+	5.2.0
+spanner / version
+	5.2.0
+core / version
+	5.2.0
+version
+	5.2.0
+dynamodb / version
+	5.2.0
+sqlite / version
+	5.2.0
+dynamodbOnly / version
+	5.2.0
+coreOnly / version
+	5.2.0
+bigtable / version
+	5.2.0
+spanner / version
+	5.2.0
+core / version
+	5.2.0
+version
+	5.2.0
