@@ -369,29 +369,41 @@ def required_published(version, codes):
     return all(codes[artifact] == 200 for artifact in bundle.ARTIFACTS)
 
 
-SBT_HEADER = re.compile(r'(?:[A-Za-z][A-Za-z0-9_-]* / )?version')
+SBT_HEADER = re.compile(r'(?:([A-Za-z][A-Za-z0-9_-]*) / )?version')
+# 端末の制御列（CSI と、ESC と1文字の列：ESC 7 なども）。sbt は -batch でも supershell の消去（ESC[0J）を出すことがある
+ANSI = re.compile(r'\x1b(?:\[[0-?]*[ -/]*[@-~]|[0-~])')
 
 
 def check_build_version(output, tag):
-    """`sbt -batch --error '+print version'` の標準出力を読み、すべての値がタグの版かを確かめる（設計 design-r5.md §1）。
+    """`sbt -batch --error '+print version'` の標準出力を読み、すべての値がタグの版かを確かめる（設計 design-r5.md §1・§12）。
 
-    出力は「`<project> / version` か `version` の見出しの行」と「タブで始まる値の行」の組で、集約するすべての
-    プロジェクトと、両方の Scala の版が出る。値の行が1つも無い、ほかの形の行がある、版が1つでも違う、は止める。"""
-    lines = output.split('\n')
-    if lines and lines[-1] == '':
-        lines.pop()
+    出力は「`<project> / version`（根は `version`）の見出しの行」と、その次の「タブで始まる値の行」の組で、集約する
+    すべてのプロジェクトと、両方の Scala の版が出る。端末の制御列と空行は除いて読む。公開するプロジェクト
+    （bundle.PROJECTS）は、Scala の版の数（bundle.SCALA_BINARY_VERSIONS）だけちょうど出なければならない（漏れを見つける）。
+    値の行の無い見出し、見出しの無い値の行、ほかの形の行、版が1つでも違う、は止める。"""
+    lines = [line for line in ANSI.sub('', output).split('\n') if line != '']
+    counts = {}
     values = []
-    for number, line in enumerate(lines, 1):
-        if line.startswith('\t'):
-            values.append(line[1:])
-        elif not SBT_HEADER.fullmatch(line):
-            raise Stop(f'line {number} of the sbt output is neither "<project> / version" nor a tab and a version: '
-                       f'{line!r}')
-    if not values:
-        raise Stop('sbt printed no version')
+    index = 0
+    while index < len(lines):
+        header = SBT_HEADER.fullmatch(lines[index])
+        if not header:
+            raise Stop(f'sbt printed {lines[index]!r} where "<project> / version" was expected')
+        if index + 1 >= len(lines) or not lines[index + 1].startswith('\t'):
+            raise Stop(f'sbt printed no version after {lines[index]!r}')
+        project = header.group(1) or ''
+        counts[project] = counts.get(project, 0) + 1
+        values.append(lines[index + 1][1:])
+        index += 2
     wrong = sorted({value for value in values if f'v{value}' != tag})
     if wrong:
         raise Stop(f'sbt builds {wrong}, but the tag is {tag}')
+    expected = len(bundle.SCALA_BINARY_VERSIONS)
+    missing = {project or '<root>': counts.get(project, 0) for project in bundle.PROJECTS
+               if counts.get(project, 0) != expected}
+    if missing:
+        raise Stop(f'sbt printed the version of these published projects {missing} times, expected {expected} '
+                   f'(one per Scala version)')
     return values[0]
 
 

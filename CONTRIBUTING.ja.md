@@ -137,7 +137,8 @@ ID が無くて事前の確認が止まったときは、そのエラーの文�
 | 待っていた公開のジョブが、`release-publish` の group にあとから着いたジョブ（ほかのタグの push、ほかの版の再実行）に置き換えられた | その run は始まる前に取り消される。その run は何も公開しない | その版が最新の `vX.Y.Z` のタグなら、取り消された run のジョブをすべて再実行する（取り消されたジョブは、アップロードに数えない）。そうでなければ、再実行しても新しいタグがあるので関門で止まる。前の試みで版が既に公開されていたとき（たとえば GitHub のリリースの作成だけが失敗していた）は、[新しいタグの前に公開された版](#新しいタグの前に公開された版)の手順で回復する。公開されていなければそのまま（飛んだ版） |
 | タグのジョブ（`Tag the merged version`）が、`release-tag` の group にあとから着いたジョブに置き換えられた | その run は取り消される。その版にタグが付かない | その版が最新の `vX.Y.Z` のタグより大きければ、取り消された run を再実行する。あとにほかの pull request がマージされていても同じ（関門は `main` の先頭であることを求めない）。そうでなければそのまま（関門が拒否する） |
 | `CENTRAL_DEPLOYMENTS` の行の形が違う、artifact と違う ID を書いた、Portal が知っている deployment に `none` を書いた | 事前の確認が止まる | 行を直すか消して、再実行する |
-| `publish` の run や `central-` の artifact を消した。タグの push で `publish` の run が起きなかった（一度に4つ以上のタグの push、障害） | 事前の確認が止まる（`publish` の run の無いタグがある） | その版の deployment が処理中でないことを Portal で確かめ、`tag/vX.Y.Z=checked` を足して再実行する。タグは動かさない |
+| `publish` の run を消した。タグの push で `publish` の run が起きなかった（一度に4つ以上のタグの push、障害） | 事前の確認が止まる（`publish` の run の無いタグがある：`tag vX.Y.Z has no publish.yml run`） | その版の deployment が処理中でないことを Portal で確かめ、`tag/vX.Y.Z=checked` を足して再実行する。タグは動かさない |
+| `publish` の run は残っているが、試みの `central-deployment-<試みの番号>-<ID>` の artifact を消した | 事前の確認が止まる（その試みはアップロードしたかもしれないのに deployment の ID が無い）。足す行を出す。`tag/vX.Y.Z=checked` では通らない（run の無いタグにだけ効く） | その試みの job summary やログ、または Portal で名前 `event-store-adapter-scala-<版>-run<run_id>-<試みの番号>` から ID を探す。`<run_id>/<試みの番号>=<ID>` を足す。Portal にその deployment が無ければ `<run_id>/<試みの番号>=none` を足す。そのあと再実行する |
 | `publish.yml` のジョブや手順の名前を変えた | 前の run で、事前の確認が止まる | 変えない。どうしても変えるときは、古い名前も `.github/central-rules.py` に残す |
 | artifact の保存期間を 90 日より短くした | 事前の確認が止まる | 90 日に戻す |
 | 30 日を過ぎて、run を再実行できない | | その版は飛んだ版として扱い、次の版を出す。その前に、行方の分からない試みすべてに行を足す |

@@ -21,9 +21,9 @@ from workflow_runner import Runner, UnknownExpression, default_environment
 gate = portal.gate
 RUN_ID = portal.FIRST_COUNTED_RUN_ID + 500
 DEPLOYMENT = '44444444-4444-4444-8444-444444444444'
-# PGP_SECRET は base64 にした鍵（central-bundle.sh が base64 -d して偽の gpg に渡す）
+# 秘密の値はどれも明らかな偽物。PGP_SECRET は base64 として読める偽物（central-bundle.sh が base64 -d して偽の gpg に渡す）
 SECRETS = {'SONATYPE_USERNAME': 'dummy-sonatype-username', 'SONATYPE_PASSWORD': 'dummy-sonatype-password',
-           'PGP_SECRET': 'ZHVtbXktcGdwLXNlY3JldA==', 'PGP_PASSPHRASE': 'dummy-pgp-passphrase'}
+           'PGP_SECRET': 'fakefakefakefake', 'PGP_PASSPHRASE': 'dummy-pgp-passphrase'}
 FAKE_SBT = '''#!/usr/bin/env python3
 # 偽の sbt。呼ばれた引数を残し、+print version には全プロジェクトの版を、+publishSigned には 12 の成果物の
 # 24 ファイル（本体4つと .asc、その全部の .md5・.sha1）を file:// の先に書く。
@@ -32,12 +32,13 @@ from pathlib import Path
 with open(os.environ['FAKE_SBT_CALLS'], 'a') as calls:
     calls.write(' '.join(sys.argv[1:]) + '\\n')
 version = os.environ['FAKE_SBT_VERSION']
-if sys.argv[1:] == ['-batch', '--error', '+print version']:
+if sys.argv[1:] == ['-batch', '--error', '-Dsbt.supershell=false', '-Dsbt.color=false', '+print version']:
     print('[info] this line goes to standard error', file=sys.stderr)
-    for project in ('core', 'dynamodb', 'coreOnly'):
-        for _ in ('2.13', '3'):
+    for _ in ('2.13', '3'):
+        for project in ('core', 'dynamodb', 'spanner', 'bigtable', 'sqlite', 'coreOnly', 'dynamodbOnly'):
             print(f'{project} / version\\n\\t{version}')
-    print(f'version\\n\\t{version}')
+        # supershell の消去の制御列（CI の実物で見た ESC[0J）が混じっても読める
+        print(f'version\\n\\t{version}\\n\\x1b[0J')
 elif sys.argv[-1] == '+publishSigned':
     repository = re.search(r'"file://([^"]+)"', sys.argv[-2]).group(1)
     for artifact in os.environ['FAKE_ARTIFACTS'].split():
@@ -230,7 +231,7 @@ class ReleaseWorkflowRunTest(unittest.TestCase):
         self.assertEqual(result.ran(), expected)
         self.assertEqual(len(result.steps), len(release_steps(RELEASE)))
         calls = self.sbt_calls.read_text().splitlines()
-        self.assertEqual(calls[0], '-batch --error +print version')
+        self.assertEqual(calls[0], '-batch --error -Dsbt.supershell=false -Dsbt.color=false +print version')
         self.assertEqual(sum(line.endswith('+publishSigned') for line in calls), 1)
         self.assertTrue(calls[1].startswith('gpg --batch --import'), calls)
         self.assertEqual(len(self.uploads), 1)

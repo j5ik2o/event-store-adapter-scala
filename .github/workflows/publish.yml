@@ -60,14 +60,14 @@ jobs:
           java-version: 25
       - name: Set up sbt
         uses: sbt/setup-sbt@v1
-      # 標準出力だけを照合に渡す（sbt の起動の行と警告は標準エラーに出る）
+      # 標準出力だけを照合に渡す（sbt の起動の行と警告は標準エラーに出る）。supershell と色を切り、制御列を出さない
       - name: Check the version sbt builds
         id: build_version
         env:
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
           set -o pipefail
-          sbt -batch --error '+print version' \
+          sbt -batch --error -Dsbt.supershell=false -Dsbt.color=false '+print version' \
             | python3 "${GITHUB_WORKSPACE}"/.github/central-portal.py check-version --tag "$RELEASE_TAG"
       # 秘密の値は、それを使う手順の env だけに置く（PGP_* は bundle、SONATYPE_* は precheck・upload・deployment）。
       - name: Check Maven Central before publishing

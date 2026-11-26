@@ -25,7 +25,7 @@ public="${work}/public.asc"
 gpg --batch --armor --export > "$public"
 
 printf '0.0.0\n' > version
-sbt -batch --error '+print version' | python3 "${here}/central-portal.py" check-version --tag v0.0.0
+sbt -batch --error -Dsbt.supershell=false -Dsbt.color=false '+print version' | python3 "${here}/central-portal.py" check-version --tag v0.0.0
 # central-bundle.sh は自分の GNUPGHOME に鍵を読み込む（publish.yml と同じ）
 bash "${here}/central-bundle.sh" 0.0.0 "${work}/bundle.zip"
 python3 "${here}/central-bundle.py" verify --zip "${work}/bundle.zip" --version 0.0.0

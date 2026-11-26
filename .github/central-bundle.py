@@ -17,15 +17,11 @@ import zipfile
 from pathlib import Path, PurePosixPath
 
 GROUP_PATH = 'io/github/j5ik2o'
-# build.sbt の name と crossScalaVersions の二進の版（.github/tests/test_central_bundle.py が照らし合わせる）
-MODULES = (
-    'event-store-adapter-scala',
-    'event-store-adapter-scala-core',
-    'event-store-adapter-scala-dynamodb',
-    'event-store-adapter-scala-spanner',
-    'event-store-adapter-scala-bigtable',
-    'event-store-adapter-scala-sqlite',
-)
+# 公開する sbt のプロジェクト（id。'' は根）と、その成果物の名前。公開するモジュールの一覧はここだけに置く
+# （bundle、repo1 の確かめ、sbt の版の照合が使う。.github/tests/test_central_bundle.py が build.sbt と照らし合わせる）
+PROJECTS = ('', 'core', 'dynamodb', 'spanner', 'bigtable', 'sqlite')
+MODULES = tuple('event-store-adapter-scala' + (f'-{project}' if project else '') for project in PROJECTS)
+# build.sbt の crossScalaVersions の二進の版
 SCALA_BINARY_VERSIONS = ('2.13', '3')
 ARTIFACTS = tuple(f'{module}_{binary}' for module in MODULES for binary in SCALA_BINARY_VERSIONS)
 SUFFIXES = ('.jar', '-sources.jar', '-javadoc.jar', '.pom')

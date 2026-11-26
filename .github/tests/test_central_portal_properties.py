@@ -337,25 +337,40 @@ class ParsePropertiesTest(unittest.TestCase):
         self.assertTrue(valid_attempt or valid_tag)
 
     @SETTINGS
-    @given(st.lists(st.one_of(
-        st.sampled_from(('version', 'core / version', 'dynamodb-only / version', 'core_3 / version', 'version ',
-                         ' / version', 'core / version / x', '', '[info] x', '5.3.0', '\r', 'core/ version')),
-        st.tuples(st.sampled_from(('\t', ' ', '\t\t', '')),
-                  st.sampled_from(('5.3.0', '5.3.1', '5.3.0-SNAPSHOT', '5.3.0 ', '5.3.0\r', ''))).map(''.join),
-    ), max_size=8), st.booleans())
-    def test_p16_build_version(self, lines, final_newline):
-        """P16：通る ⇔ 値の行（タブ1つと版）が1つ以上あり、すべて 5.3.0 で、ほかの行がすべて見出しの形。"""
-        output = '\n'.join(lines) + ('\n' if final_newline and lines else '')
-        header = portal.re.compile(r'(?:[A-Za-z][A-Za-z0-9_-]* / )?version')
-        values = [line[1:] for line in lines if line.startswith('\t')]
-        ok = (bool(values) and all(value == '5.3.0' for value in values)
-              and all(line.startswith('\t') or header.fullmatch(line) for line in lines))
+    @given(st.lists(st.tuples(
+        st.sampled_from(portal.bundle.PROJECTS + ('coreOnly', 'dynamodbOnly', 'other')),
+        st.sampled_from(('5.3.0', '5.3.0', '5.3.0', '5.3.1', '5.3.0-SNAPSHOT', '5.3.0 ')),
+    ), max_size=16), st.lists(st.tuples(
+        st.integers(0, 40), st.sampled_from(('\x1b[0J', '\x1b[2K', '\x1b[32m', '\x1b[0m', '\x1b7')),
+    ), max_size=4), st.lists(st.integers(0, 40), max_size=3), st.lists(st.tuples(st.integers(0, 40), st.sampled_from(('[info] x', ' 5.3.0', 'version x', '\r'))),
+                             max_size=1),
+           st.booleans())
+    def test_p16_build_version(self, pairs, noise, blanks, junk, complete):
+        """P16：通る ⇔ 版がすべて 5.3.0、公開するプロジェクトがそれぞれ Scala の版の数だけちょうど出る、見出しと値の組の
+        ほかに行が無い。端末の制御列と空行は、どこに入っても結果を変えない。"""
+        if complete:
+            pairs = pairs + [(project, '5.3.0') for project in portal.bundle.PROJECTS
+                             for _ in portal.bundle.SCALA_BINARY_VERSIONS]
+        lines = []
+        for project, value in pairs:
+            lines += [f'{project} / version' if project else 'version', f'\t{value}']
+        for position, line in sorted(junk, reverse=True):
+            lines.insert(min(position, len(lines)), line)
+        for position in sorted(blanks, reverse=True):
+            lines.insert(min(position, len(lines)), '')
+        output = '\n'.join(lines) + '\n'
+        for position, sequence in sorted(noise, reverse=True):
+            position = min(position, len(output))
+            output = output[:position] + sequence + output[position:]
+        counts = {project: sum(1 for name, _ in pairs if name == project) for project in portal.bundle.PROJECTS}
+        ok = (not junk and all(value == '5.3.0' for _, value in pairs)
+              and all(count == len(portal.bundle.SCALA_BINARY_VERSIONS) for count in counts.values()))
         try:
             value = portal.check_build_version(output, 'v5.3.0')
         except portal.Stop:
-            self.assertFalse(ok, output)
+            self.assertFalse(ok, repr(output))
             return
-        self.assertTrue(ok, output)
+        self.assertTrue(ok, repr(output))
         self.assertEqual(value, '5.3.0')
 
 

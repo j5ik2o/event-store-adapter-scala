@@ -75,6 +75,11 @@ class CentralBundleTest(unittest.TestCase):
         self.assertIn('    name := "event-store-adapter-scala",\n', build)
         self.assertIn('ThisBuild / organization := "io.github.j5ik2o"', build)
         self.assertEqual(sorted(central_bundle.MODULES), sorted(['event-store-adapter-scala'] + names))
+        # sbt のプロジェクトの id（版の照合が数える見出し）と成果物の名前の対応
+        drivers = re.findall(r'lazy val (\w+) = driverProject\("\1"\)', build)
+        self.assertIn('lazy val core = (project in file("core"))', build)
+        self.assertEqual(sorted(central_bundle.PROJECTS), sorted(['', 'core'] + drivers))
+        self.assertIn('.aggregate(core, dynamodb, spanner, bigtable, sqlite, coreOnly, dynamodbOnly)', build)
         # 公開しないプロジェクト（coreOnly、dynamodbOnly）は publish / skip
         self.assertEqual(build.count('publish / skip := true'), 2)
         dependencies = (ROOT / 'project' / 'Dependencies.scala').read_text()

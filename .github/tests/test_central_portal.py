@@ -196,6 +196,16 @@ class DecideTest(unittest.TestCase):
             self.assertIn(f'{RUN}/{attempt}=<deployment ID|none>', message)
         self.assertIn('3 release attempt(s)', message)
 
+    def test_a_deleted_record_is_not_covered_by_a_checked_tag(self):
+        # run は残り、試みの ID の artifact だけが消えた：tag/vX.Y.Z=checked では通らず、試みの行が要る（CONTRIBUTING の表）
+        uploaded = run(jobs=[release_job(1)], artifacts=())
+        self.assert_stops(facts([uploaded], overrides='tag/v5.3.0=checked'), f'{RUN}/1=<deployment ID|none>')
+        self.assertEqual(self.decide(facts([uploaded], overrides=f'{RUN}/1=none', statuses={})).action, 'upload')
+        # run そのものが無いタグ（v5.4.0）は、tag/vX.Y.Z=checked で、その確かめを通る（このあとは最新のタグの確かめで止まる）
+        self.assert_stops(facts(tags=('v5.2.0', 'v5.3.0', 'v5.4.0')), 'tag v5.4.0 has no publish.yml run')
+        self.assert_stops(facts(tags=('v5.2.0', 'v5.3.0', 'v5.4.0'), overrides='tag/v5.4.0=checked'),
+                          'is not the latest release tag')
+
     def test_queries_that_fail_stop(self):
         recorded = run(jobs=[release_job(1)], artifacts=[record(1, ID_A)])
         self.assert_stops(facts([recorded]), 're-run')
@@ -225,12 +235,24 @@ class SmallFunctionsTest(unittest.TestCase):
         cases = (
             (output, 'v5.2.1'), (one_wrong, 'v5.2.0'), ('', 'v5.2.0'), ('version\n', 'v5.2.0'),
             (output.replace('\n', '\r\n'), 'v5.2.0'), (output + '[info] welcome to sbt\n', 'v5.2.0'),
-            (output + '\n', 'v5.2.0'), (output.replace('\t5.2.0', ' 5.2.0', 1), 'v5.2.0'),
+            (output.replace('\t5.2.0', ' 5.2.0', 1), 'v5.2.0'),
+            # 公開するプロジェクトの漏れ（根、sqlite の片方の Scala の版）と、3回出たプロジェクト
+            (portal.re.sub(r'(?m)^version\n\t5\.2\.0\n', '', output), 'v5.2.0'),
+            (output.replace('sqlite / version\n\t5.2.0\n', '', 1), 'v5.2.0'),
+            (output + 'core / version\n\t5.2.0\n', 'v5.2.0'),
+            ('core / version\n\t5.2.0\n' * 2, 'v5.2.0'),
             (output.replace('\t5.2.0', '\t5.2.0 ', 1), 'v5.2.0'), ('5.2.0\n', 'v5.2.0'),
         )
         for text, tag in cases:
             with self.subTest(text=text[-30:], tag=tag), self.assertRaises(Stop):
                 portal.check_build_version(text, tag)
+        # CI の実物（run 45871085954）で、33 行目に supershell の消去 ESC[0J だけの行が出た。制御列と空行は読み飛ばす
+        for noisy in (output + '\x1b[0J', output + '\x1b[0J\n', '\x1b[2K' + output, output + '\n\n',
+                      output.replace('\t5.2.0\n', '\t\x1b[32m5.2.0\x1b[0m\n')):
+            with self.subTest(noisy=noisy[-20:]):
+                self.assertEqual(portal.check_build_version(noisy, 'v5.2.0'), '5.2.0')
+        # 公開しないプロジェクト（coreOnly・dynamodbOnly）は数を問わない
+        self.assertEqual(portal.check_build_version(output.replace('coreOnly / version\n\t5.2.0\n', ''), 'v5.2.0'), '5.2.0')
 
     def test_parse_status(self):
         body = b'{"deploymentId": "x", "deploymentName": "n", "deploymentState": "FAILED", "errors": {"a": ["b"]}}'

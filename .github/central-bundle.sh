@@ -14,5 +14,5 @@ mkdir -m 700 "$GNUPGHOME"
 printf '%s' "$PGP_SECRET" | base64 -d | gpg --batch --import
 repository="${work}/repository"
 
-sbt -batch "set every publishTo := Some(\"central-bundle\" at \"file://${repository}\")" +publishSigned
+sbt -batch -Dsbt.supershell=false -Dsbt.color=false "set every publishTo := Some(\"central-bundle\" at \"file://${repository}\")" +publishSigned
 python3 "$(dirname "$0")/central-bundle.py" build --repository "$repository" --version "$version" --output "$output"

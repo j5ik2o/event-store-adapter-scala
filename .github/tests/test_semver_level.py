@@ -3,6 +3,7 @@
 import os
 import re
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -111,6 +112,55 @@ class SemverLevelStepTest(unittest.TestCase):
         self.git('switch', '-q', '-')
         self.git('-c', 'commit.gpgsign=false', 'merge', '--no-ff', '-q', '-m', 'feat: merge topic', 'topic')
         self.assertEqual(self.level(), 'semver_level=patch\n')
+
+
+
+class NextVersionStepTest(unittest.TestCase):
+    """bump-version.yml の versions の手順（next-semver.py）。タグの先頭の v だけを外して SemVer として読む（#934 の Devin の指摘）。"""
+
+    def next_version(self, prev_tag, level, requested=''):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / 'output'
+            output.write_text('')
+            result = subprocess.run(['bash', '-e', '-c', run_body(BUMP, 'versions')], cwd=directory,
+                                    capture_output=True, text=True,
+                                    env={**os.environ, 'PREV_TAG': prev_tag, 'SEMVER_LEVEL': level,
+                                         'REQUESTED_VERSION': requested, 'GITHUB_OUTPUT': str(output),
+                                         'GITHUB_WORKSPACE': str(GITHUB.parent)})
+            return result, output.read_text()
+
+    def test_multi_digit_versions_are_read_whole(self):
+        cases = {('v10.2.0', 'patch'): '10.2.1', ('v10.2.0', 'minor'): '10.3.0', ('v10.2.0', 'major'): '11.0.0',
+                 ('v5.12.34', 'patch'): '5.12.35', ('v5.2.0', 'minor'): '5.3.0', ('v0.9.9', 'patch'): '0.9.10',
+                 ('v123.45.678', 'major'): '124.0.0'}
+        for (tag, level), expected in cases.items():
+            with self.subTest(tag=tag, level=level):
+                result, output = self.next_version(tag, level)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(output, f'next_version={expected}\nnext_tag=v{expected}\n')
+
+    def test_a_requested_version_is_used_as_is(self):
+        result, output = self.next_version('v10.2.0', '', requested='10.4.0')
+        self.assertEqual(output, 'next_version=10.4.0\nnext_tag=v10.4.0\n')
+
+    def test_a_tag_that_is_not_a_version_fails_the_step(self):
+        # 読めないタグを読み飛ばして空の版の PR を作らない
+        for tag in ('vX', 'release-10.2.0', 'v10.2', ''):
+            with self.subTest(tag=tag):
+                result, output = self.next_version(tag, 'patch')
+                if tag:
+                    self.assertNotEqual(result.returncode, 0)
+                self.assertNotIn('next_version=1', output)
+
+    @settings(max_examples=100, deadline=None)
+    @given(st.integers(0, 10**6), st.integers(0, 10**6), st.integers(0, 10**6),
+           st.sampled_from(('patch', 'minor', 'major')), st.booleans())
+    def test_p17b_the_next_version_bumps_the_whole_tag(self, major, minor, patch, level, prefix):
+        tag = ('v' if prefix else '') + f'{major}.{minor}.{patch}'
+        result = subprocess.run([sys.executable, str(GITHUB / 'next-semver.py'), level], input=tag + '\n',
+                                capture_output=True, text=True)
+        expected = {'patch': (major, minor, patch + 1), 'minor': (major, minor + 1, 0), 'major': (major + 1, 0, 0)}[level]
+        self.assertEqual(result.stdout, '.'.join(map(str, expected)) + '\n', result.stderr)
 
 
 if __name__ == '__main__':

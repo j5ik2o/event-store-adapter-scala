@@ -2,14 +2,14 @@
 # -*- coding: utf-8 -*-
 import sys
 import semver
-import re
 
 args = sys.argv
 
 for s in sys.stdin:
-    r = re.match('.*v?(\d+\.\d+\.\d+)', s)
-    if r:
-        cur_ver = semver.VersionInfo.parse(r.group(1))
+    # 先頭の v だけを外し、残り全体を SemVer として読む（`.*` で前を読み飛ばすと v10.2.0 が 0.2.0 になる。#934）
+    s = s.strip()
+    if s:
+        cur_ver = semver.VersionInfo.parse(s[1:] if s.startswith('v') else s)
         next_ver = ""
         if args[1] == "snapshot":
             next_ver = f"{cur_ver.bump_patch()}-SNAPSHOT"
