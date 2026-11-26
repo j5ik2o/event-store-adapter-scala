@@ -161,11 +161,12 @@ jobs:
           else
             # 基点は、前にある正式版のタグのうち GitHub のリリースがあるもの（公開を確かめた版）。公開されずに飛んだ
             # タグの変更も、このリリースのノートに入れる（#934 の CodeRabbit の指摘）。見つからなければ直前のタグ
+            # リリースの一覧は1回で読む。読めなければ止める（照会の失敗を「リリースなし」と見て基点を誤らない）
+            RELEASED=$(gh api --paginate "repos/${GITHUB_REPOSITORY}/releases" --jq '.[].tag_name')
             PREV_TAG=""
             CANDIDATES=$(git tag --merged "${RELEASE_TAG}^" --list 'v[0-9]*' --sort=-version:refname)
             for CANDIDATE in $CANDIDATES; do
-              if [[ "$CANDIDATE" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] \
-                && gh release view "$CANDIDATE" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+              if [[ "$CANDIDATE" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] && grep -qxF "$CANDIDATE" <<< "$RELEASED"; then
                 PREV_TAG="$CANDIDATE"
                 break
               fi

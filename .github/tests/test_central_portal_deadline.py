@@ -102,6 +102,36 @@ class DeadlineTest(unittest.TestCase):
         result, elapsed, _ = self.run_command(commands.wait, args, 5, published)
         self.assertEqual((result, elapsed), (0, 5))
 
+    def test_listing_the_tags_stays_within_the_deadline(self):
+        # precheck の git ls-remote も、残り時間でタイムアウトを切り、締め切りを過ぎたら動かさない（#934 の CodeRabbit の指摘）
+        now = [0.0]
+        calls = []
+
+        def run(command, **kwargs):
+            calls.append(kwargs['timeout'])
+            return type('Result', (), {'returncode': 0, 'stdout': '', 'stderr': ''})()
+
+        with mock.patch.object(commands.subprocess, 'run', side_effect=run):
+            for left, expected in ((3600, 120), (30, 30), (0.5, 0.5)):
+                with self.subTest(left=left):
+                    commands.DEADLINE = commands.Deadline(left, lambda: now[0])
+                    try:
+                        commands.remote_tags('origin')
+                    finally:
+                        commands.DEADLINE = None
+                    self.assertEqual(calls[-1], expected)
+            commands.DEADLINE = commands.Deadline(0, lambda: now[0])
+            try:
+                with self.assertRaises(portal.Stop):
+                    commands.remote_tags('origin')
+            finally:
+                commands.DEADLINE = None
+        self.assertEqual(len(calls), 3)
+        # 締め切りの外（関門の入力集めなど）では、今までどおり 120 秒
+        with mock.patch.object(commands.subprocess, 'run', side_effect=run):
+            commands.remote_tags('origin')
+        self.assertEqual(calls[-1], 120)
+
     def test_the_default_deadline_is_sixty_minutes(self):
         parser_args = ['confirm', '--version', '5.3.0']
         with mock.patch.object(commands, 'confirm', side_effect=lambda args: args.deadline) as fake:

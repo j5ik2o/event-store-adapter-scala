@@ -10,12 +10,19 @@ from pathlib import Path
 from release_test_support import GITHUB, RELEASE, steps
 
 FAKE_GH = '''#!/bin/sh
-# 偽の gh。release view は FAKE_RELEASES にあるタグだけ成功する。release create は引数を残す
+# 偽の gh。release view は FAKE_RELEASES にあるタグだけ成功する。api の releases は FAKE_RELEASES を1行ずつ返し、
+# FAKE_GH_API_FAIL があれば HTTP 502 で失敗する。release create は引数を残す
 if [ "$1 $2" = "release view" ]; then
   for tag in $FAKE_RELEASES; do
     [ "$tag" = "$3" ] && exit 0
   done
   exit 1
+fi
+if [ "$1" = "api" ]; then
+  [ -n "$FAKE_GH_API_FAIL" ] && { echo "HTTP 502" >&2; exit 1; }
+  [ "$2 $3" = "--paginate repos/o/r/releases" ] || exit 2
+  for tag in $FAKE_RELEASES; do echo "$tag"; done
+  exit 0
 fi
 if [ "$1 $2" = "release create" ]; then
   printf '%s\\n' "$@" > "$FAKE_GH_CREATE"
@@ -52,16 +59,28 @@ class ReleaseNotesBaseTest(unittest.TestCase):
     def git(self, *args):
         return subprocess.run(['git', *args], cwd=self.work, check=True, capture_output=True, text=True).stdout
 
-    def release(self, releases):
+    def run_step(self, releases, api_fails=False):
         create = self.root / 'gh-create'
         result = subprocess.run(['bash', '-e', '-c', release_step_body()], cwd=self.work, capture_output=True, text=True,
                                 env={**os.environ, 'PATH': f'{self.bin}{os.pathsep}{os.environ["PATH"]}',
                                      'FAKE_RELEASES': releases, 'FAKE_GH_CREATE': str(create),
+                                     'FAKE_GH_API_FAIL': '1' if api_fails else '',
                                      'GH_TOKEN': 'unused', 'RELEASE_TAG': 'v5.4.0', 'SERVER_URL': 'https://github.com',
                                      'GITHUB_REPOSITORY': 'o/r', 'GITHUB_WORKSPACE': str(GITHUB.parent),
                                      'RUNNER_TEMP': str(self.root)})
+        return result, create
+
+    def release(self, releases):
+        result, _ = self.run_step(releases)
         self.assertEqual(result.returncode, 0, result.stderr)
         return result.stdout, (self.root / 'release-notes.md').read_text()
+
+    def test_a_failed_release_listing_stops_before_creating_the_release(self):
+        # 照会の失敗を「リリースなし」と見て、未公開のタグを基点にしない（#934 の CodeRabbit の指摘）
+        result, create = self.run_step('v5.2.0', api_fails=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('HTTP 502', result.stderr)
+        self.assertFalse(create.exists())
 
     def test_a_skipped_tag_is_not_the_base(self):
         # v5.3.0 はタグだけで公開されていない（リリースが無い）→ 基点は v5.2.0。v5.3.0 の変更もノートに入る

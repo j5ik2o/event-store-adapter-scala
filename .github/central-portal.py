@@ -167,9 +167,16 @@ def timestamp(text):
 
 
 def remote_tags(remote):
-    """リモートのタグを読む（`git ls-remote --tags`）。読むたびに取り直す（待つあいだに新しいタグができうる）。"""
+    """リモートのタグを読む（`git ls-remote --tags`）。読むたびに取り直す（待つあいだに新しいタグができうる）。
+    コマンドの締め切りの中で動かし、残り時間が無ければ動かさない（#934 の CodeRabbit の指摘）。"""
+    timeout = 120
+    if DEADLINE is not None:
+        left = DEADLINE.remaining()
+        if left <= 0:
+            raise Stop(f'the deadline passed before the tags of {remote} could be listed; re-run the job')
+        timeout = min(timeout, left)
     try:
-        result = subprocess.run(['git', 'ls-remote', '--tags', remote], capture_output=True, text=True, timeout=120)
+        result = subprocess.run(['git', 'ls-remote', '--tags', remote], capture_output=True, text=True, timeout=timeout)
     except subprocess.TimeoutExpired as error:
         raise Stop(f'listing the tags of {remote} timed out; re-run the job') from error
     if result.returncode != 0:
